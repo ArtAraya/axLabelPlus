@@ -56,8 +56,6 @@ Fork of Awesome LabelPlus VB6 UserControl from Leandro Ascierto
 | :star: ChangeOnMouseOver    | Constant  | *indicate styles of color change when mouse passed on control* |
 | :star: ColorOnMouseOver      | OLE_Color | *indicate color to change if ChangeOnMouseOver is setted*    |
 | :star:ColorOpacityOnMouseOver |  Integer  | *color opacity to* ColorOnMouseOver                          |
-| :star: ​CrossPosition       | Constant  | *indicate the position to place Cross to "close" the control* |
-| :star: CrossVisible          |  Boolean  | *enable the cross "to close" (hide) the control (it change the state of VISIBLE property)* |
 | :star: ForeColorOnPress      | OLE_Color | *color of the font (in both captions) when control is clicked and ChangeColorOnClick is setted to     eChangeCaption1, eChangeCaption2, eChangeCaptions, eChangeCaptionIcon, eChangeCaptionBorder or eChangeCaptionHotLine* |
 | :star:ForeColorOnPressOpacity |  Integer  | *color opacity to* ForeColorOnPress                          |
 | :star: GlowColor             | OLE_Color | *color border for Glowing effect*                            |
@@ -130,7 +128,6 @@ Fork of Awesome LabelPlus VB6 UserControl from Leandro Ascierto
 | DblClick()                                                   | *raised  by double clicking on the control*                  |
 | :star:Change()                                               | *raised  when captions are modified*                         |
 | :star:ChangeValue(Value As Boolean)                          | *raised  when* OptionBehavior *is enabled and return* Value *property value. (True or False)* |
-| :star:CrossClick()                                           | *raised  when* CrossVisible *is enabled and cross is clicked* |
 | MouseDown(Button As Integer, Shift As Integer, X As Single, Y  As Single) | *raised  when a mouse button is held down over the control, and return mouse button  pressed, special key pressed and coordinates X and Y* |
 | MouseMove(Button As Integer, Shift As Integer, X As Single, Y  As Single) | *raised  when a mouse button is held down while moving it over the control, and return  mouse button pressed, special key pressed and coordinates X and Y* |
 | MouseUp(Button As Integer, Shift As Integer, X As Single, Y As  Single) | *raised  when the mouse button pressed over the control is released, and return mouse  button pressed, special key pressed and coordinates X and Y* |
@@ -203,7 +200,7 @@ We use [SemVer](http://semver.org/) for versioning. For the versions available, 
 
 - **Leandro Ascierto** - *Initial work* - [Leandro Ascierto VB6 Latin Blog & Forums](http://leandroascierto.com/blog/)
 - **AxioUK** - David Rojas *Editor & Forum User* - [Leandro Ascierto VB6 Latin Blog & Forums](http://leandroascierto.com/blog/)
-
+- **Art Araya** - *Personalized modifications for my project needs* - [Salty Brine Software](https://www.saltybrine.com)  
 ## License
 
 This project is free to use, modify and sharing... only mention the authors in the credits :smile:
