@@ -6,9 +6,11 @@ Begin VB.UserControl axLabelPlus
    ClientTop       =   0
    ClientWidth     =   4770
    ClipBehavior    =   0  'None
+   PropertyPages   =   "axLabelPlus.ctx":0000
    ScaleHeight     =   360
    ScaleMode       =   3  'Pixel
    ScaleWidth      =   477
+   ToolboxBitmap   =   "axLabelPlus.ctx":0011
    Windowless      =   -1  'True
    Begin VB.Timer tmrEffect 
       Enabled         =   0   'False
@@ -515,7 +517,7 @@ Dim m_CaptionShowPrefix As Boolean
 Dim m_ColorOnMouseOver As OLE_COLOR
 Dim m_ColorOnMouseOverOpacity As Integer
 Dim m_AutoSize As Boolean
-Dim m_MousePointerHands As Boolean
+Dim m_MousePointerHand As Boolean
 Dim m_Font As StdFont
 Attribute m_Font.VB_VarHelpID = -1
 Dim m_Font2 As StdFont
@@ -619,6 +621,14 @@ End Property
 Public Property Let Selected(ByVal pNewValue As Boolean)
     PropertyChanged "Selected"
     m_bolSelected = pNewValue
+End Property
+
+Public Property Get Parent() As Form
+    Set Parent = Extender.Parent
+End Property
+
+Public Property Get Container() As Control
+    Set Container = Extender.Control
 End Property
 
 Public Function ChrW2(ByVal CharCode As Long) As String
@@ -2252,7 +2262,7 @@ End Function
 
 Private Sub OptBehavior()
 Dim frm As Form
-    Set frm = Extender.parent
+    Set frm = Extender.Parent
     
 Dim lHwnd As Long
     lHwnd = Extender.Container.hwnd
@@ -2903,7 +2913,7 @@ Private Sub UserControl_ReadProperties(PropBag As PropertyBag)
         m_PictureColor = .ReadProperty("PictureColor", vbBlack)
         UserControl.MousePointer = .ReadProperty("MousePointer", vbArrow)
         UserControl.MouseIcon = .ReadProperty("MouseIcon", Nothing)
-        m_MousePointerHands = .ReadProperty("MousePointerHands", False)
+        m_MousePointerHand = .ReadProperty("MousePointerHand", False)
         m_MouseToParent = .ReadProperty("MouseToParent", False)
         UserControl.OLEDropMode = .ReadProperty("OLEDropMode", 0&)
         m_HotLine = .ReadProperty("HotLine", False)
@@ -2932,7 +2942,7 @@ Private Sub UserControl_ReadProperties(PropBag As PropertyBag)
         
         m_PicEffect = .ReadProperty("PictureEffectMouseOver", eIncreaseOpacity)
 
-        If m_MousePointerHands Then
+        If m_MousePointerHand Then
             If Ambient.UserMode Then
                 UserControl.MousePointer = vbCustom
                 UserControl.MouseIcon = GetSystemHandCursor
@@ -3056,7 +3066,7 @@ Private Sub UserControl_WriteProperties(PropBag As PropertyBag)
         Call .WriteProperty("PictureColor", m_PictureColor, False)
         Call .WriteProperty("MousePointer", UserControl.MousePointer, vbArrow)
         Call .WriteProperty("MouseIcon", UserControl.MouseIcon, Nothing)
-        Call .WriteProperty("MousePointerHands", m_MousePointerHands, False)
+        Call .WriteProperty("MousePointerHand", m_MousePointerHand, False)
         Call .WriteProperty("MouseToParent", m_MouseToParent, False)
         Call .WriteProperty("OLEDropMode", UserControl.OLEDropMode, 0&)
         Call .WriteProperty("HotLine", m_HotLine, False)
@@ -4108,12 +4118,12 @@ Public Property Get MousePointer() As MousePointerConstants
     MousePointer = UserControl.MousePointer
 End Property
 
-Public Property Get MousePointerHands() As Boolean
-    MousePointerHands = m_MousePointerHands
+Public Property Get MousePointerHand() As Boolean
+    MousePointerHand = m_MousePointerHand
 End Property
 
-Public Property Let MousePointerHands(ByVal newValue As Boolean)
-    m_MousePointerHands = newValue
+Public Property Let MousePointerHand(ByVal newValue As Boolean)
+    m_MousePointerHand = newValue
     If newValue Then
         If Ambient.UserMode Then
             UserControl.MousePointer = vbCustom
@@ -4124,7 +4134,7 @@ Public Property Let MousePointerHands(ByVal newValue As Boolean)
         UserControl.MousePointer = vbDefault
         UserControl.MouseIcon = Nothing
     End If
-    PropertyChanged "MousePointerHands"
+    PropertyChanged "MousePointerHand"
 End Property
 
 Public Property Let MousePointer(ByVal newValue As MousePointerConstants)
