@@ -56,6 +56,7 @@ Fork of Awesome LabelPlus VB6 UserControl from Leandro Ascierto
 | :star: ChangeOnMouseOver    | Constant  | *indicate styles of color change when mouse passed on control* |
 | :star: ColorOnMouseOver      | OLE_Color | *indicate color to change if ChangeOnMouseOver is setted*    |
 | :star:ColorOpacityOnMouseOver |  Integer  | *color opacity to* ColorOnMouseOver                          |
+| :star:Container |  Control  | *reference to Container that the label is placed within*                           |
 | :star: ForeColorOnPress      | OLE_Color | *color of the font (in both captions) when control is clicked and ChangeColorOnClick is setted to     eChangeCaption1, eChangeCaption2, eChangeCaptions, eChangeCaptionIcon, eChangeCaptionBorder or eChangeCaptionHotLine* |
 | :star:ForeColorOnPressOpacity |  Integer  | *color opacity to* ForeColorOnPress                          |
 | :star: GlowColor             | OLE_Color | *color border for Glowing effect*                            |
@@ -89,6 +90,7 @@ Fork of Awesome LabelPlus VB6 UserControl from Leandro Ascierto
 | IsMouseEnter                    |  Boolean  | *return* TRUE *when the mouse enter to the control area, return* FALSE *on exit* |
 | IsMouseOver                     |  Boolean  | *return* TRUE *if mouse is over control area, return* FALSE *if not* |
 | :star: OptionBehavior       |  Boolean  | *allows the control to function as an OptionButton, returning* TRUE *when clicked and passing the other controls that have OptionBehavior enabled to* FALSE |
+| :star:Parent |  Form  | *reference to Form that the label is placed on*                           |
 | PictureAlignmentH               | Constant  | *indicate the horizontal alignment of the picture*           |
 | PictureAlignmentV               | Constant  | *indicate the vertical alignment of the picture*             |
 | PictureAngle                    |  Integer  | *set the inclination angle of the picture*                   |
