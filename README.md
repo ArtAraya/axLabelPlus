@@ -1,4 +1,4 @@
-# axLabelPlus v1.6.14
+# axLabelPlus v1.6.15
 
 Fork of Awesome LabelPlus VB6 UserControl from Leandro Ascierto
 
@@ -22,6 +22,7 @@ Fork of Awesome LabelPlus VB6 UserControl from Leandro Ascierto
 | BorderCornerLeftTop             |  Integer  | *radius for top-left round corner*                           |
 | BorderCornerRightTop            |  Integer  | *radius for top-right  round corner*                         |
 | BorderPosition                  | Constant  | *indicates if edge line is drawn inside, outside or center of the border* |
+| :star: BorderStyle                  | Constant  | *control border style - thin or normal* |
 | BorderWidth                     |  Integer  | *width of the edge line*                                     |
 | CallOut                         |  Boolean  | *enable the callout triangle (to simulate a bubble text or Tooltip text)* |
 | CallOutAlign                    | Constant  | *position of the callout triangle on the corner especified*  |
