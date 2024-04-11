@@ -46,10 +46,16 @@ Option Explicit
 'Special thanks to: All members of the VB6 Latin group (www.leandroacierto.com/foro), vbforum.com and activevb.net
 'Moded Name: axLabelPlus
 'Autor:  Art Araya (Saltybrine Software)
-'LastUpdate: 3/13/2024
+'LastUpdate: 4/11/2024
 'Version: 1.6.15 -----------------------------
 '- Added ItemData and Selected Properties
 '- Removed all Cross related code as it was not reliable at all under different DPIs and involved too many hardcoded magic numbers in the Draw code
+'- Changed m_GlowBorder from Integer to Long to help with Overflow errors (which still happen however)
+'- Added Parent and Container public property Get
+'- Renamed the two Top related border corner variables (place "Top" before side to confirm to "Bottom" variable names)
+'- Renamed m_MousePointerHands to singular m_MousePointerHand
+'- Added eBorderStyles enum and related Draw() code
+'- Added eChangeBackColor to eChangeOnMouseOver enum and related code in Draw()
 '-----------------------------------------------
 
 'Moded Name: axLabelPlus
@@ -96,7 +102,7 @@ Private Declare Sub FillMemory Lib "kernel32.dll" Alias "RtlFillMemory" (ByRef D
 Private Declare Function MulDiv Lib "kernel32.dll" (ByVal nNumber As Long, ByVal nNumerator As Long, ByVal nDenominator As Long) As Long
 Private Declare Function WindowFromPoint Lib "user32.dll" (ByVal xPoint As Long, ByVal yPoint As Long) As Long
 Private Declare Function GetCursorPos Lib "user32" (lpPoint As POINTAPI) As Long
-Private Declare Function PtInRect Lib "user32.dll" (ByRef lpRect As RECT, ByVal X As Long, ByVal Y As Long) As Long
+Private Declare Function PtInRect Lib "user32.dll" (ByRef lpRect As RECT, ByVal x As Long, ByVal y As Long) As Long
 Private Declare Function ScreenToClient Lib "user32.dll" (ByVal hwnd As Long, ByRef lpPoint As POINTAPI) As Long
 Private Declare Function ClientToScreen Lib "user32.dll" (ByVal hwnd As Long, ByRef lpPoint As POINTAPI) As Long
 Private Declare Function SendMessage Lib "user32.dll" Alias "SendMessageA" (ByVal hwnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByRef lParam As Any) As Long
@@ -108,15 +114,15 @@ Private Declare Function GetObjectType Lib "gdi32.dll" (ByVal hgdiobj As Long) A
 Private Declare Function CryptStringToBinaryA Lib "crypt32.dll" (ByVal pszString As String, ByVal cchString As Long, ByVal dwFlags As Long, ByVal pbBinary As Long, ByVal pcbBinary As Long, ByVal pdwSkip As Long, ByVal pdwFlags As Long) As Long
 
 Private Declare Function GetDC Lib "user32.dll" (ByVal hwnd As Long) As Long
-Private Declare Function ReleaseDC Lib "user32.dll" (ByVal hwnd As Long, ByVal hDC As Long) As Long
+Private Declare Function ReleaseDC Lib "user32.dll" (ByVal hwnd As Long, ByVal hdc As Long) As Long
 Private Declare Function VarPtrArray Lib "msvbvm60.dll" Alias "VarPtr" (ptr() As Any) As Long
-Private Declare Function OleCreatePictureIndirect Lib "olepro32.dll" (PicDesc As PicBmp, RefIID As Any, ByVal fPictureOwnsHandle As Long, IPic As IPicture) As Long
-Private Declare Function GetDeviceCaps Lib "gdi32" (ByVal hDC As Long, ByVal nIndex As Long) As Long
-Private Declare Function BitBlt Lib "gdi32.dll" (ByVal hDestDC As Long, ByVal X As Long, ByVal Y As Long, ByVal nWidth As Long, ByVal nHeight As Long, ByVal hSrcDC As Long, ByVal xSrc As Long, ByVal ySrc As Long, ByVal dwRop As Long) As Long
-Private Declare Function CreateCompatibleDC Lib "gdi32" (ByVal hDC As Long) As Long
-Private Declare Function CreateCompatibleBitmap Lib "gdi32" (ByVal hDC As Long, ByVal nWidth As Long, ByVal nHeight As Long) As Long
-Private Declare Function SelectObject Lib "gdi32" (ByVal hDC As Long, ByVal hObject As Long) As Long
-Private Declare Function DeleteDC Lib "gdi32" (ByVal hDC As Long) As Long
+Private Declare Function OleCreatePictureIndirect Lib "olepro32.dll" (PicDesc As PicBmp, RefIID As Any, ByVal fPictureOwnsHandle As Long, ipic As IPicture) As Long
+Private Declare Function GetDeviceCaps Lib "gdi32" (ByVal hdc As Long, ByVal nIndex As Long) As Long
+Private Declare Function BitBlt Lib "gdi32.dll" (ByVal hDestDC As Long, ByVal x As Long, ByVal y As Long, ByVal nWidth As Long, ByVal nHeight As Long, ByVal hSrcDC As Long, ByVal xSrc As Long, ByVal ySrc As Long, ByVal dwRop As Long) As Long
+Private Declare Function CreateCompatibleDC Lib "gdi32" (ByVal hdc As Long) As Long
+Private Declare Function CreateCompatibleBitmap Lib "gdi32" (ByVal hdc As Long, ByVal nWidth As Long, ByVal nHeight As Long) As Long
+Private Declare Function SelectObject Lib "gdi32" (ByVal hdc As Long, ByVal hObject As Long) As Long
+Private Declare Function DeleteDC Lib "gdi32" (ByVal hdc As Long) As Long
 Private Declare Function DeleteObject Lib "gdi32.dll" (ByVal hObject As Long) As Long
 Private Declare Function OleTranslateColor Lib "oleaut32.dll" (ByVal lOleColor As Long, ByVal lHPalette As Long, ByVal lColorRef As Long) As Long
 Private Declare Sub CreateStreamOnHGlobal Lib "ole32.dll" (ByRef hGlobal As Any, ByVal fDeleteOnRelease As Long, ByRef ppstm As Any)
@@ -124,14 +130,14 @@ Private Declare Sub GdiplusShutdown Lib "gdiplus" (ByVal Token As Long)
 Private Declare Function GdiplusStartup Lib "gdiplus" (Token As Long, inputbuf As GdiplusStartupInput, Optional ByVal outputbuf As Long = 0) As Long
 Private Declare Function GdipLoadImageFromStream Lib "gdiplus" (ByVal Stream As IUnknown, ByRef Image As Long) As Long
 Private Declare Function GdipDisposeImage Lib "gdiplus" (ByVal Image As Long) As Long
-Private Declare Function GdipCreateFromHDC Lib "gdiplus" (ByVal hDC As Long, hGraphics As Long) As Long
+Private Declare Function GdipCreateFromHDC Lib "gdiplus" (ByVal hdc As Long, hGraphics As Long) As Long
 Private Declare Function GdipDeleteGraphics Lib "gdiplus" (ByVal hGraphics As Long) As Long
 Private Declare Function GdipDrawImageRectRectI Lib "gdiplus" (ByVal hGraphics As Long, ByVal hImage As Long, ByVal DstX As Long, ByVal DstY As Long, ByVal DstWidth As Long, ByVal DstHeight As Long, ByVal SrcX As Long, ByVal SrcY As Long, ByVal SrcWidth As Long, ByVal SrcHeight As Long, ByVal srcUnit As Long, Optional ByVal imageAttributes As Long = 0, Optional ByVal Callback As Long = 0, Optional ByVal callbackData As Long = 0) As Long
 Private Declare Function GdipDisposeImageAttributes Lib "gdiplus" (ByVal imageattr As Long) As Long
 Private Declare Function GdipCreateImageAttributes Lib "gdiplus" (ByRef imageattr As Long) As Long
 Private Declare Function GdipSetImageAttributesColorMatrix Lib "gdiplus" (ByVal imageattr As Long, ByVal ColorAdjust As Long, ByVal EnableFlag As Boolean, ByRef MatrixColor As COLORMATRIX, ByRef MatrixGray As COLORMATRIX, ByVal flags As Long) As Long
 Private Declare Function GdipSetSmoothingMode Lib "gdiplus" (ByVal graphics As Long, ByVal SmoothingMd As Long) As Long
-Private Declare Function GdipCreateSolidFill Lib "gdiplus" (ByVal argb As Long, ByRef Brush As Long) As Long
+Private Declare Function GdipCreateSolidFill Lib "gdiplus" (ByVal ARGB As Long, ByRef Brush As Long) As Long
 Private Declare Function GdipDeleteBrush Lib "gdiplus" (ByVal Brush As Long) As Long
 Private Declare Function GdipCreatePen1 Lib "GdiPlus.dll" (ByVal mColor As Long, ByVal mWidth As Single, ByVal mUnit As Long, ByRef mPen As Long) As Long
 Private Declare Function GdipDrawLineI Lib "GdiPlus.dll" (ByVal mGraphics As Long, ByVal mPen As Long, ByVal mX1 As Long, ByVal mY1 As Long, ByVal mX2 As Long, ByVal mY2 As Long) As Long
@@ -147,7 +153,7 @@ Private Declare Function GdipDeletePen Lib "GdiPlus.dll" (ByVal mPen As Long) As
 Private Declare Function GdipCreateTexture Lib "GdiPlus.dll" (ByVal mImage As Long, ByVal mWrapMode As Long, ByRef mTexture As Long) As Long
 Private Declare Function GdipClosePathFigures Lib "GdiPlus.dll" (ByVal mPath As Long) As Long
 Private Declare Function GdipBitmapUnlockBits Lib "GdiPlus.dll" (ByVal mBitmap As Long, ByRef mLockedBitmapData As BitmapData) As Long
-Private Declare Function GdipBitmapLockBits Lib "GdiPlus.dll" (ByVal mBitmap As Long, ByRef mRect As RECTL, ByVal mFlags As ImageLockMode, ByVal mPixelFormat As Long, ByRef mLockedBitmapData As BitmapData) As Long
+Private Declare Function GdipBitmapLockBits Lib "GdiPlus.dll" (ByVal mBitmap As Long, ByRef mRect As RectL, ByVal mFlags As ImageLockMode, ByVal mPixelFormat As Long, ByRef mLockedBitmapData As BitmapData) As Long
 Private Declare Function GdipGetImageHeight Lib "GdiPlus.dll" (ByVal mImage As Long, ByRef mHeight As Long) As Long
 Private Declare Function GdipGetImageWidth Lib "GdiPlus.dll" (ByVal mImage As Long, ByRef mWidth As Long) As Long
 Private Declare Function GdipDrawImageRectI Lib "GdiPlus.dll" (ByVal mGraphics As Long, ByVal mImage As Long, ByVal mX As Long, ByVal mY As Long, ByVal mWidth As Long, ByVal mHeight As Long) As Long
@@ -158,12 +164,12 @@ Private Declare Function GdipCreateFont Lib "GdiPlus.dll" (ByVal mFontFamily As 
 Private Declare Function GdipDeleteFont Lib "GdiPlus.dll" (ByVal mFont As Long) As Long
 Private Declare Function GdipDrawString Lib "GdiPlus.dll" (ByVal mGraphics As Long, ByVal mString As Long, ByVal mLength As Long, ByVal mFont As Long, ByRef mLayoutRect As RECTF, ByVal mStringFormat As Long, ByVal mBrush As Long) As Long
 Private Declare Function GdipSetPenMode Lib "GdiPlus.dll" (ByVal mPen As Long, ByVal mPenMode As PenAlignment) As Long
-Private Declare Function GdipCreateLineBrushFromRectWithAngleI Lib "GdiPlus.dll" (ByRef mRect As RECTL, ByVal mColor1 As Long, ByVal mColor2 As Long, ByVal mAngle As Single, ByVal mIsAngleScalable As Long, ByVal mWrapMode As WrapMode, ByRef mLineGradient As Long) As Long
+Private Declare Function GdipCreateLineBrushFromRectWithAngleI Lib "GdiPlus.dll" (ByRef mRect As RectL, ByVal mColor1 As Long, ByVal mColor2 As Long, ByVal mAngle As Single, ByVal mIsAngleScalable As Long, ByVal mWrapMode As WrapMode, ByRef mLineGradient As Long) As Long
 Private Declare Function GdipCreateFontFamilyFromName Lib "gdiplus" (ByVal Name As Long, ByVal fontCollection As Long, fontFamily As Long) As Long
 Private Declare Function GdipDeleteFontFamily Lib "gdiplus" (ByVal fontFamily As Long) As Long
 Private Declare Function GdipAddPathString Lib "GdiPlus.dll" (ByVal mPath As Long, ByVal mString As Long, ByVal mLength As Long, ByVal mFamily As Long, ByVal mStyle As Long, ByVal mEmSize As Single, ByRef mLayoutRect As RECTF, ByVal mFormat As Long) As Long
 Private Declare Function GdipGetGenericFontFamilySansSerif Lib "GdiPlus.dll" (ByRef mNativeFamily As Long) As Long
-Private Declare Function GdipCreateStringFormat Lib "gdiplus" (ByVal formatAttributes As Long, ByVal Language As Integer, StringFormat As Long) As Long
+Private Declare Function GdipCreateStringFormat Lib "gdiplus" (ByVal formatAttributes As Long, ByVal language As Integer, StringFormat As Long) As Long
 Private Declare Function GdipSetStringFormatFlags Lib "GdiPlus.dll" (ByVal mFormat As Long, ByVal mFlags As eStringFormatFlags) As Long
 Private Declare Function GdipSetStringFormatHotkeyPrefix Lib "GdiPlus.dll" (ByVal mFormat As Long, ByVal mHotkeyPrefix As HotkeyPrefix) As Long
 Private Declare Function GdipSetStringFormatTrimming Lib "GdiPlus.dll" (ByVal mFormat As Long, ByVal mTrimming As StringTrimming) As Long
@@ -204,7 +210,7 @@ Private Type PicBmp
     Size As Long
     type As Long
     hBmp As Long
-    hpal As Long
+    hPal As Long
     Reserved As Long
 End Type
 
@@ -215,7 +221,7 @@ Private Type GUID
     Data4(0 To 7) As Byte
 End Type
 
-Private Type RECTL
+Private Type RectL
     Left As Long
     Top As Long
     Width As Long
@@ -223,8 +229,8 @@ Private Type RECTL
 End Type
 
 Private Type POINTL
-    X As Long
-    Y As Long
+    x As Long
+    y As Long
 End Type
 
 Private Type BitmapData
@@ -251,8 +257,8 @@ Private Type RECT
 End Type
 
 Private Type POINTAPI
-    X As Long
-    Y As Long
+    x As Long
+    y As Long
 End Type
 
 Public Enum eCallOutPosition
@@ -273,6 +279,11 @@ Public Enum eBorderPosition
     bpInside
     bpCenter
     bpOutside
+End Enum
+
+Public Enum eBorderStyle
+    bsNormal = 0
+    bsThin
 End Enum
 
 Public Enum eCaptionAlignmentH
@@ -381,6 +392,7 @@ Public Enum eChangeOnMouse
     eChangeCaptionBorder
     eChangeCaptionHotLine
     eChangePictureEffects
+    eChangeBackColor
 End Enum
 
 Public Enum eChangeOpacityEffect
@@ -404,20 +416,20 @@ Public Event Click()
 Public Event DblClick()
 Public Event Change()
 Public Event ChangeValue(Value As Boolean)
-Public Event MouseDown(Button As Integer, Shift As Integer, X As Single, Y As Single)
-Public Event MouseMove(Button As Integer, Shift As Integer, X As Single, Y As Single)
-Public Event MouseUp(Button As Integer, Shift As Integer, X As Single, Y As Single)
+Public Event MouseDown(Button As Integer, Shift As Integer, x As Single, y As Single)
+Public Event MouseMove(Button As Integer, Shift As Integer, x As Single, y As Single)
+Public Event MouseUp(Button As Integer, Shift As Integer, x As Single, y As Single)
 Public Event MouseEnter()
 Public Event MouseLeave()
 Public Event MouseOver()
 'Public Event MouseOut()
-Public Event PrePaint(hDC As Long, X As Long, Y As Long)
-Public Event PostPaint(ByVal hDC As Long)
+Public Event PrePaint(hdc As Long, x As Long, y As Long)
+Public Event PostPaint(ByVal hdc As Long)
 Public Event KeyPress(KeyAscii As Integer)
 Public Event KeyUp(KeyCode As Integer, Shift As Integer)
 Public Event KeyDown(KeyCode As Integer, Shift As Integer)
-Public Event OLEDragDrop(Data As DataObject, Effect As Long, Button As Integer, Shift As Integer, X As Single, Y As Single)
-Public Event OLEDragOver(Data As DataObject, Effect As Long, Button As Integer, Shift As Integer, X As Single, Y As Single, State As Integer)
+Public Event OLEDragDrop(Data As DataObject, Effect As Long, Button As Integer, Shift As Integer, x As Single, y As Single)
+Public Event OLEDragOver(Data As DataObject, Effect As Long, Button As Integer, Shift As Integer, x As Single, y As Single, State As Integer)
 Public Event PictureDownloadProgress(BytesMax As Long, BytesLeidos As Long)
 Public Event PictureDownloadComplete()
 Public Event PictureDownloadError()
@@ -430,6 +442,7 @@ Const m_def_BackColorPOpacity = 100
 Const m_def_Border = False
 Const m_def_BorderColor = vbActiveBorder
 Const m_def_BorderColorOpacity = 100
+Const m_def_BorderStyle = 0
 Const m_def_ColorOnMouseOver = vbWhite
 Const m_def_ColorOnMouseOverOpacity = 100
 Const m_def_BorderPosition = 1
@@ -474,16 +487,17 @@ Dim m_Shadow As Boolean
 Dim m_Border As Boolean
 Dim m_BorderColor As OLE_COLOR
 Dim m_BorderColorOpacity As Integer
+Dim m_BorderStyle   As eBorderStyle
 Dim m_OldBorderColorOpacity As Integer
 Dim m_BorderPosition As eBorderPosition
-Dim m_BorderCornerLeftTop As Integer
-Dim m_BorderCornerRightTop As Integer
+Dim m_BorderCornerTopLeft As Integer
+Dim m_BorderCornerTopRight As Integer
 Dim m_BorderCornerBottomLeft As Integer
 Dim m_BorderCornerBottomRight As Integer
 Dim m_BorderWidth As Integer
 '-----------
 Dim m_GlowFixBorder As Integer
-Dim m_GlowBorder As Integer
+Dim m_GlowBorder As Long    'used to be Integer but produced overflow errors
 Dim m_GlowColor As OLE_COLOR
 Dim m_GlowOpacity As Integer
 Dim m_Glowing As Boolean
@@ -638,11 +652,11 @@ Public Function ChrW2(ByVal CharCode As Long) As String
                                       ChrW$(&HDC00& + (CharCode And (POW10 - 1)))
 End Function
 
-Public Sub Draw(ByVal hDC As Long, ByVal hGraphics As Long, ByVal PosX As Long, PosY As Long)
+Public Sub Draw(ByVal hdc As Long, ByVal hGraphics As Long, ByVal PosX As Long, PosY As Long)
     Dim hPath As Long
     Dim hBrush As Long
     Dim hPen As Long
-    Dim X As Long, Y As Long
+    Dim x As Long, y As Long
     Dim Xx As Long, Yy As Long
     Dim lWidth As Long, lHeight As Long
     Dim WW As Long, HH As Long
@@ -654,14 +668,21 @@ Public Sub Draw(ByVal hDC As Long, ByVal hGraphics As Long, ByVal PosX As Long, 
     ShadowSize = m_ShadowSize * nScale
     ShadowOffsetX = m_ShadowOffsetX * nScale
     ShadowOffsetY = m_ShadowOffsetY * nScale
-    BorderWidth = m_BorderWidth * nScale
+    
+    If m_BorderStyle = bsNormal Then
+        BorderWidth = m_BorderWidth * nScale
+    Else
+        BorderWidth = m_BorderWidth
+    End If
+    
     m_GlowBorder = m_GlowBorder * nScale
     
+    
     If m_BackAcrylicBlur Then
-        BitBlt hDCMemory, 0, 0, UserControl.ScaleWidth, UserControl.ScaleHeight, UserControl.hDC, 0, 0, vbSrcCopy
+        BitBlt hDCMemory, 0, 0, UserControl.ScaleWidth, UserControl.ScaleHeight, UserControl.hdc, 0, 0, vbSrcCopy
     End If
      
-    If hGraphics = 0 Then GdipCreateFromHDC hDC, hGraphics
+    If hGraphics = 0 Then GdipCreateFromHDC hdc, hGraphics
     
     GdipSetSmoothingMode hGraphics, SmoothingModeAntiAlias
     GdipTranslateWorldTransform hGraphics, PosX, PosY, &H1
@@ -670,13 +691,13 @@ Public Sub Draw(ByVal hDC As Long, ByVal hGraphics As Long, ByVal PosX As Long, 
         lWidth = UserControl.ScaleWidth
         lHeight = UserControl.ScaleHeight
     ElseIf m_BorderPosition = bpCenter Then
-        X = (BorderWidth \ 2)
-        Y = (BorderWidth \ 2)
+        x = (BorderWidth \ 2)
+        y = (BorderWidth \ 2)
         lWidth = UserControl.ScaleWidth - BorderWidth
         lHeight = UserControl.ScaleHeight - BorderWidth
     Else
-        X = BorderWidth
-        Y = BorderWidth
+        x = BorderWidth
+        y = BorderWidth
         lWidth = UserControl.ScaleWidth - (BorderWidth * 2)
         lHeight = UserControl.ScaleHeight - (BorderWidth * 2)
     End If
@@ -688,13 +709,13 @@ Public Sub Draw(ByVal hDC As Long, ByVal hGraphics As Long, ByVal PosX As Long, 
     End If
     
     If m_ShadowSize > 0 Then
-        X = X + ShadowSize + IIf(ShadowOffsetX < 0, Abs(ShadowOffsetX), 0) '+ PosX
-        Y = Y + ShadowSize + IIf(ShadowOffsetY < 0, Abs(ShadowOffsetY), 0) '+ PosY
+        x = x + ShadowSize + IIf(ShadowOffsetX < 0, Abs(ShadowOffsetX), 0) '+ PosX
+        y = y + ShadowSize + IIf(ShadowOffsetY < 0, Abs(ShadowOffsetY), 0) '+ PosY
         lWidth = lWidth - (ShadowSize * 2) - Abs(ShadowOffsetX)
         lHeight = lHeight - (ShadowSize * 2) - Abs(ShadowOffsetY)
     End If
   
-    Xx = X:         Yy = Y
+    Xx = x:         Yy = y
     WW = lWidth:    HH = lHeight
 
     hPath = RoundRectangle(Xx, Yy, WW, HH)
@@ -703,23 +724,34 @@ Public Sub Draw(ByVal hDC As Long, ByVal hGraphics As Long, ByVal PosX As Long, 
         DrawAcrylicBlur hGraphics, hPath
     End If
 
+    'background
     If m_Gradient Then
-        Dim RECTL As RECTL
-        SetRect RECTL, X, Y, lWidth, lHeight
+        '...background is gradient
+        Dim RectL As RectL
+        SetRect RectL, x, y, lWidth, lHeight
         If m_ChangeColorOnClick And m_Clicked Then
-          GdipCreateLineBrushFromRectWithAngleI RECTL, ConvertColor(m_GradientColorP1, m_GradientColorP1Opacity), _
+          GdipCreateLineBrushFromRectWithAngleI RectL, ConvertColor(m_GradientColorP1, m_GradientColorP1Opacity), _
                                                       ConvertColor(m_GradientColorP2, m_GradientColorP2Opacity), _
                                                       m_GradientAngle + 90, 0, WrapModeTileFlipXY, hBrush
         Else
-          GdipCreateLineBrushFromRectWithAngleI RECTL, ConvertColor(m_GradientColor1, m_GradientColor1Opacity), _
+          GdipCreateLineBrushFromRectWithAngleI RectL, ConvertColor(m_GradientColor1, m_GradientColor1Opacity), _
                                                       ConvertColor(m_GradientColor2, m_GradientColor2Opacity), _
                                                       m_GradientAngle + 90, 0, WrapModeTileFlipXY, hBrush
         End If
     Else
+        '...background is solid color
         If m_ChangeColorOnClick And m_Clicked Then
             GdipCreateSolidFill ConvertColor(m_BackColorP, m_BackColorPOpacity), hBrush
         Else
-            GdipCreateSolidFill ConvertColor(m_BackColor, m_BackColorOpacity), hBrush
+            If m_ChangeOnMouseOver = eChangeBackColor Then
+                If m_MouseOver Then
+                    GdipCreateSolidFill ConvertColor(m_ColorOnMouseOver, m_ColorOnMouseOverOpacity), hBrush
+                Else
+                    GdipCreateSolidFill ConvertColor(m_BackColor, m_BackColorOpacity), hBrush
+                End If
+            Else
+                GdipCreateSolidFill ConvertColor(m_BackColor, m_BackColorOpacity), hBrush
+            End If
         End If
     End If
         
@@ -743,9 +775,9 @@ Public Sub Draw(ByVal hDC As Long, ByVal hGraphics As Long, ByVal PosX As Long, 
         CreateCaptionShadow Xx, Yy, WW, HH
         
         If hImgCaptionShadow <> 0 Then
-            X = Xx - ShadowSize + IIf(ShadowOffsetX > 0, ShadowOffsetX, ShadowOffsetX * 2) + PosX
-            Y = Yy - ShadowSize + IIf(ShadowOffsetY > 0, ShadowOffsetY, ShadowOffsetY * 2) + PosY
-            GdipDrawImageRectI hGraphics, hImgCaptionShadow, X, Y, WW + ShadowSize * 2, HH + ShadowSize * 2
+            x = Xx - ShadowSize + IIf(ShadowOffsetX > 0, ShadowOffsetX, ShadowOffsetX * 2) + PosX
+            y = Yy - ShadowSize + IIf(ShadowOffsetY > 0, ShadowOffsetY, ShadowOffsetY * 2) + PosY
+            GdipDrawImageRectI hGraphics, hImgCaptionShadow, x, y, WW + ShadowSize * 2, HH + ShadowSize * 2
         End If
     End If
     
@@ -757,9 +789,8 @@ Public Sub Draw(ByVal hDC As Long, ByVal hGraphics As Long, ByVal PosX As Long, 
     GDIP_AddPathString hGraphics, Xx, Yy, WW, HH
     'Caption2
     GDIP_AddPathString2 hGraphics, Xx, Yy, WW, HH
-    Debug.Print "Xx=" & Xx & ", Yy=" & Yy & ", WW=" & WW & ", HH=" & HH
-    Debug.Print "UserControl.ScaleWidth=" & UserControl.ScaleWidth
-
+    'Debug.Print "Xx=" & Xx & ", Yy=" & Yy & ", WW=" & WW & ", HH=" & HH
+    'Debug.Print "UserControl.ScaleWidth=" & UserControl.ScaleWidth
     If m_Border And BorderWidth > 0 Then
         Select Case m_ChangeOnMouseOver
           Case Is = eChangeBorderColor, eChangeCaptionBorder, eChangeIconBorder
@@ -777,11 +808,11 @@ Public Sub Draw(ByVal hDC As Long, ByVal hGraphics As Long, ByVal PosX As Long, 
         ElseIf m_BorderPosition = bpOutside Then
     
             GdipDeletePath hPath
-            X = (BorderWidth / 2) + PosX
-            Y = (BorderWidth / 2) + PosY
+            x = (BorderWidth / 2) + PosX
+            y = (BorderWidth / 2) + PosY
             lWidth = UserControl.ScaleWidth - BorderWidth
             lHeight = UserControl.ScaleHeight - BorderWidth
-            hPath = RoundRectangle(X, Y, lWidth, lHeight, True)
+            hPath = RoundRectangle(x, y, lWidth, lHeight, True)
         End If
         
         GdipDrawPath hGraphics, hPen, hPath
@@ -798,11 +829,11 @@ Public Sub Draw(ByVal hDC As Long, ByVal hGraphics As Long, ByVal PosX As Long, 
         ElseIf m_BorderPosition = bpOutside Then
     
             GdipDeletePath hPath
-            X = (m_GlowBorder / 2) + PosX
-            Y = (m_GlowBorder / 2) + PosY
+            x = (m_GlowBorder / 2) + PosX
+            y = (m_GlowBorder / 2) + PosY
             lWidth = UserControl.ScaleWidth - m_GlowBorder
             lHeight = UserControl.ScaleHeight - m_GlowBorder
-            hPath = GlowRectangle(X, Y, lWidth, lHeight, True)
+            hPath = GlowRectangle(x, y, lWidth, lHeight, True)
         End If
         
         GdipDrawPath hGraphics, hPen, hPath
@@ -811,14 +842,14 @@ Public Sub Draw(ByVal hDC As Long, ByVal hGraphics As Long, ByVal PosX As Long, 
 '--End-Glowing------------------
     
     GdipDeletePath hPath
-    If hDC <> 0 Then GdipDeleteGraphics hGraphics
+    If hdc <> 0 Then GdipDeleteGraphics hGraphics
 
 End Sub
 
-Public Function DrawLine(ByVal hDC As Long, ByVal X1 As Long, ByVal Y1 As Long, ByVal X2 As Long, ByVal Y2 As Long, Optional ByVal oColor As OLE_COLOR = vbBlack, Optional ByVal Opacity As Integer = 100, Optional ByVal PenWidth As Integer = 1) As Boolean
+Public Function DrawLine(ByVal hdc As Long, ByVal X1 As Long, ByVal Y1 As Long, ByVal X2 As Long, ByVal Y2 As Long, Optional ByVal oColor As OLE_COLOR = vbBlack, Optional ByVal Opacity As Integer = 100, Optional ByVal PenWidth As Integer = 1) As Boolean
     Dim hGraphics As Long, hPen As Long
     
-    GdipCreateFromHDC hDC, hGraphics
+    GdipCreateFromHDC hdc, hGraphics
     GdipSetSmoothingMode hGraphics, SmoothingModeAntiAlias
     GdipCreatePen1 ConvertColor(oColor, Opacity), PenWidth * nScale, UnitPixel, hPen
     DrawLine = GdipDrawLineI(hGraphics, hPen, X1 * nScale, Y1 * nScale, X2 * nScale, Y2 * nScale) = 0
@@ -826,7 +857,7 @@ Public Function DrawLine(ByVal hDC As Long, ByVal X1 As Long, ByVal Y1 As Long, 
     GdipDeleteGraphics hGraphics
 End Function
 
-Function DrawText(ByVal hDC As Long, ByVal text As String, ByVal X As Long, ByVal Y As Long, ByVal Width As Long, ByVal Height As Long, ByVal oFont As StdFont, ByVal ForeColor As OLE_COLOR, Optional ByVal ColorOpacity As Integer = 100, Optional HAlign As eCaptionAlignmentH, Optional VAlign As eCaptionAlignmentV, Optional bWordWrap As Boolean) As Long
+Function DrawText(ByVal hdc As Long, ByVal text As String, ByVal x As Long, ByVal y As Long, ByVal Width As Long, ByVal Height As Long, ByVal oFont As StdFont, ByVal ForeColor As OLE_COLOR, Optional ByVal ColorOpacity As Integer = 100, Optional HAlign As eCaptionAlignmentH, Optional VAlign As eCaptionAlignmentV, Optional bWordWrap As Boolean) As Long
     Dim hBrush As Long
     Dim hFontFamily As Long
     Dim hFormat As Long
@@ -838,7 +869,7 @@ Function DrawText(ByVal hDC As Long, ByVal text As String, ByVal X As Long, ByVa
     
     SafeRange ColorOpacity, 0, 100
     
-    GdipCreateFromHDC hDC, hGraphics
+    GdipCreateFromHDC hdc, hGraphics
   
     If GdipCreateFontFamilyFromName(StrPtr(oFont.Name), 0, hFontFamily) Then
         If GdipGetGenericFontFamilySansSerif(hFontFamily) Then Exit Function
@@ -858,9 +889,9 @@ Function DrawText(ByVal hDC As Long, ByVal text As String, ByVal X As Long, ByVa
     If oFont.Strikethrough Then lFontStyle = lFontStyle Or FontStyleStrikeout
         
 
-    lFontSize = MulDiv(oFont.Size, GetDeviceCaps(hDC, LOGPIXELSY), 72)
+    lFontSize = MulDiv(oFont.Size, GetDeviceCaps(hdc, LOGPIXELSY), 72)
 
-    layoutRect.Left = X * nScale: layoutRect.Top = Y * nScale
+    layoutRect.Left = x * nScale: layoutRect.Top = y * nScale
     layoutRect.Width = Width * nScale: layoutRect.Height = Height * nScale
 
     GdipCreateSolidFill ConvertColor(ForeColor, ColorOpacity), hBrush
@@ -891,7 +922,7 @@ Function DrawText(ByVal hDC As Long, ByVal text As String, ByVal X As Long, ByVa
 End Function
 
 Public Function GetSystemHandCursor() As Picture
-    Dim Pic As PicBmp, IPic As IPicture, GUID(0 To 3) As Long
+    Dim Pic As PicBmp, ipic As IPicture, GUID(0 To 3) As Long
     
     If hCur Then DestroyCursor hCur: hCur = 0
     
@@ -906,20 +937,20 @@ Public Function GetSystemHandCursor() As Picture
         .Size = Len(Pic)
         .type = vbPicTypeIcon
         .hBmp = hCur
-        .hpal = 0
+        .hPal = 0
     End With
  
-    Call OleCreatePictureIndirect(Pic, GUID(0), 1, IPic)
+    Call OleCreatePictureIndirect(Pic, GUID(0), 1, ipic)
  
-    Set GetSystemHandCursor = IPic
+    Set GetSystemHandCursor = ipic
     
 End Function
 
 Public Function GetWindowsDPI() As Double
-    Dim hDC As Long, LPX  As Double
-    hDC = GetDC(0)
-    LPX = CDbl(GetDeviceCaps(hDC, LOGPIXELSX))
-    ReleaseDC 0, hDC
+    Dim hdc As Long, LPX  As Double
+    hdc = GetDC(0)
+    LPX = CDbl(GetDeviceCaps(hdc, LOGPIXELSX))
+    ReleaseDC 0, hdc
 
     If (LPX = 0) Then
         GetWindowsDPI = 1#
@@ -937,8 +968,8 @@ Public Function IsMouseInExtender() As Boolean
     Call GetCursorPos(PT)
     Call ClientToScreen(c_lhWnd, CPT)
     
-    CPT.X = PT.X - CPT.X
-    CPT.Y = PT.Y - CPT.Y
+    CPT.x = PT.x - CPT.x
+    CPT.y = PT.y - CPT.y
 
     With TR
         .Left = scaleX(Extender.Left, vbContainerSize, UserControl.ScaleMode) ' / nScale
@@ -947,9 +978,9 @@ Public Function IsMouseInExtender() As Boolean
         .Bottom = .Top + UserControl.ScaleHeight
     End With
     
-    bArea = PtInRect(TR, CPT.X, CPT.Y)
+    bArea = PtInRect(TR, CPT.x, CPT.y)
     
-    If bArea And WindowFromPoint(PT.X, PT.Y) = c_lhWnd Then
+    If bArea And WindowFromPoint(PT.x, PT.y) = c_lhWnd Then
         IsMouseInExtender = True
     End If
 
@@ -1075,7 +1106,7 @@ Public Function PictureGetStream() As Byte()
 End Function
 
 
-Public Function Polygon(ByVal hDC As Long, ByVal PenWidth As Long, ByVal oColor As OLE_COLOR, ByVal Opacity As Integer, ParamArray vPoints() As Variant) As Boolean
+Public Function Polygon(ByVal hdc As Long, ByVal PenWidth As Long, ByVal oColor As OLE_COLOR, ByVal Opacity As Integer, ParamArray vPoints() As Variant) As Boolean
     Dim hGraphics As Long, hBrush As Long, hPen As Long
     Dim lPoints() As Long
     Dim lCount As Long
@@ -1092,7 +1123,7 @@ Public Function Polygon(ByVal hDC As Long, ByVal PenWidth As Long, ByVal oColor 
             lPoints(i) = vPoints(i) * nScale
         Next
     End If
-    GdipCreateFromHDC hDC, hGraphics
+    GdipCreateFromHDC hdc, hGraphics
     GdipSetSmoothingMode hGraphics, SmoothingModeAntiAlias
     
     If PenWidth > 0 Then
@@ -1130,8 +1161,8 @@ Private Function CreateBlurShadowImage(ByVal hImage As Long, ByVal Color As Long
                                         Optional ByVal Left As Long, Optional ByVal Top As Long, _
                                         Optional ByVal Width As Long, Optional ByVal Height As Long) As Long
                                         
-    Dim REC As RECTL
-    Dim X As Long, Y As Long
+    Dim REC As RectL
+    Dim x As Long, y As Long
     Dim hImgShadow As Long
     Dim bmpData1 As BitmapData
     Dim bmpData2 As BitmapData
@@ -1187,17 +1218,17 @@ Private Function CreateBlurShadowImage(ByVal hImage As Long, ByVal Color As Long
     
     ReDim vTally(0 To t2xBlur)              ' number of blur columns per pixel
     
-    For Y = 0 To Height + t2xBlur - 1     ' loop thru shadow dib
+    For y = 0 To Height + t2xBlur - 1     ' loop thru shadow dib
     
         FillMemory vTally(0), (t2xBlur + 1) * 4, 0  ' reset column totals
         
-        If Y < t2xBlur Then         ' y does not exist in source
+        If y < t2xBlur Then         ' y does not exist in source
             initYstart = 0          ' use 1st row
         Else
-            initYstart = Y - t2xBlur ' start n blur rows above y
+            initYstart = y - t2xBlur ' start n blur rows above y
         End If
         ' how may source rows can we use for blurring?
-        If Y < Height Then initYstop = Y Else initYstop = Height - 1
+        If y < Height Then initYstop = y Else initYstop = Height - 1
         
         tAlpha = 0  ' reset alpha sum
         tColumn = 0    ' reset column counter
@@ -1210,29 +1241,29 @@ Private Function CreateBlurShadowImage(ByVal hImage As Long, ByVal Color As Long
         ' assign the right column value
         vTally(t2xBlur) = tAlpha
         
-        For X = 3 To (Width - 2) * 4 - 1 Step 4
+        For x = 3 To (Width - 2) * 4 - 1 Step 4
             ' loop thru each source pixel's alpha
             
             ' set shadow alpha using blur average
-            dBytes(X, Y) = tAlpha \ tAvg
+            dBytes(x, y) = tAlpha \ tAvg
             ' and set shadow color
-            Select Case dBytes(X, Y)
+            Select Case dBytes(x, y)
             Case 255
-                dBytes(X - 1, Y) = R
-                dBytes(X - 2, Y) = G
-                dBytes(X - 3, Y) = B
+                dBytes(x - 1, y) = R
+                dBytes(x - 2, y) = G
+                dBytes(x - 3, y) = B
             Case 0
             Case Else
-                dBytes(X - 1, Y) = R * dBytes(X, Y) \ 255
-                dBytes(X - 2, Y) = G * dBytes(X, Y) \ 255
-                dBytes(X - 3, Y) = B * dBytes(X, Y) \ 255
+                dBytes(x - 1, y) = R * dBytes(x, y) \ 255
+                dBytes(x - 2, y) = G * dBytes(x, y) \ 255
+                dBytes(x - 3, y) = B * dBytes(x, y) \ 255
             End Select
             ' remove the furthest left column's alpha sum
             tAlpha = tAlpha - vTally(tColumn)
             ' count the next column of alphas
             vTally(tColumn) = 0&
             For initY = initYstart To initYstop
-                vTally(tColumn) = vTally(tColumn) + srcBytes(X + 4, initY)
+                vTally(tColumn) = vTally(tColumn) + srcBytes(x + 4, initY)
             Next
             ' add the new column's sum to the overall sum
             tAlpha = tAlpha + vTally(tColumn)
@@ -1241,18 +1272,18 @@ Private Function CreateBlurShadowImage(ByVal hImage As Long, ByVal Color As Long
         Next
         
         ' now to finish blurring from right edge of source
-        For X = X To (Width + t2xBlur - 1) * 4 - 1 Step 4
-            dBytes(X, Y) = tAlpha \ tAvg
-            Select Case dBytes(X, Y)
+        For x = x To (Width + t2xBlur - 1) * 4 - 1 Step 4
+            dBytes(x, y) = tAlpha \ tAvg
+            Select Case dBytes(x, y)
             Case 255
-                dBytes(X - 1, Y) = R
-                dBytes(X - 2, Y) = G
-                dBytes(X - 3, Y) = B
+                dBytes(x - 1, y) = R
+                dBytes(x - 2, y) = G
+                dBytes(x - 3, y) = B
             Case 0
             Case Else
-                dBytes(X - 1, Y) = R * dBytes(X, Y) \ 255
-                dBytes(X - 2, Y) = G * dBytes(X, Y) \ 255
-                dBytes(X - 3, Y) = B * dBytes(X, Y) \ 255
+                dBytes(x - 1, y) = R * dBytes(x, y) \ 255
+                dBytes(x - 2, y) = G * dBytes(x, y) \ 255
+                dBytes(x - 3, y) = B * dBytes(x, y) \ 255
             End Select
             ' remove this column's alpha sum
             tAlpha = tAlpha - vTally(tColumn)
@@ -1267,7 +1298,7 @@ Private Function CreateBlurShadowImage(ByVal hImage As Long, ByVal Color As Long
     CreateBlurShadowImage = hImgShadow
 End Function
 
-Private Function CreateBrushTexture(hGraphics As Long, hPath As Long, ByVal X As Long, ByVal Y As Long, ByVal Width As Long, ByVal Height As Long) As Long
+Private Function CreateBrushTexture(hGraphics As Long, hPath As Long, ByVal x As Long, ByVal y As Long, ByVal Width As Long, ByVal Height As Long) As Long
     Dim hBrush As Long
     Dim hGraphics2 As Long, hImage2 As Long
     Dim tMatrixColor    As COLORMATRIX, tMatrixGray    As COLORMATRIX
@@ -1349,12 +1380,12 @@ Private Function CreateBrushTexture(hGraphics As Long, hPath As Long, ByVal X As
         ReqWidth = m_PictureRealWidth * MyScale * nScale
         ReqHeight = m_PictureRealHeight * MyScale * nScale
 
-        If m_PictureAlignmentH = pLeft Then X = X + (m_PicturePaddingX * nScale)
-        If m_PictureAlignmentH = pCenter Then X = X + (Width / 2) - (ReqWidth / 2) + (m_PicturePaddingX * nScale)
-        If m_PictureAlignmentH = pRight Then X = X + Width - ReqWidth - (m_PicturePaddingX * nScale)
-        If m_PictureAlignmentV = pTop Then Y = Y + (m_PicturePaddingY * nScale)
-        If m_PictureAlignmentV = pMiddle Then Y = Y + (Height / 2) - (ReqHeight / 2) + (m_PicturePaddingY * nScale)
-        If m_PictureAlignmentV = pBottom Then Y = Y + Height - ReqHeight - (m_PicturePaddingY * nScale)
+        If m_PictureAlignmentH = pLeft Then x = x + (m_PicturePaddingX * nScale)
+        If m_PictureAlignmentH = pCenter Then x = x + (Width / 2) - (ReqWidth / 2) + (m_PicturePaddingX * nScale)
+        If m_PictureAlignmentH = pRight Then x = x + Width - ReqWidth - (m_PicturePaddingX * nScale)
+        If m_PictureAlignmentV = pTop Then y = y + (m_PicturePaddingY * nScale)
+        If m_PictureAlignmentV = pMiddle Then y = y + (Height / 2) - (ReqHeight / 2) + (m_PicturePaddingY * nScale)
+        If m_PictureAlignmentV = pBottom Then y = y + Height - ReqHeight - (m_PicturePaddingY * nScale)
 
         If m_PictureShadow = True And m_ShadowSize > 0 And m_ShadowColorOpacity > 0 Then
             Dim hPictureShadow As Long
@@ -1369,11 +1400,11 @@ Private Function CreateBrushTexture(hGraphics As Long, hPath As Long, ByVal X As
                 W = ReqWidth + ShadowSize * 2
                 H = ReqHeight + ShadowSize * 2
                 Call GdipRotateWorldTransform(hGraphics2, m_PictureAngle + 180, 0)
-                Call GdipTranslateWorldTransform(hGraphics2, X + (W \ 2) - ShadowSize + m_ShadowOffsetX, Y + (H \ 2) - ShadowSize + m_ShadowOffsetY, 1)
+                Call GdipTranslateWorldTransform(hGraphics2, x + (W \ 2) - ShadowSize + m_ShadowOffsetX, y + (H \ 2) - ShadowSize + m_ShadowOffsetY, 1)
                 GdipDrawImageRectRectI hGraphics2, hPictureShadow, W \ 2, H \ 2, -W, -H, 0, 0, m_PictureRealWidth + ShadowSize * 2, m_PictureRealHeight + ShadowSize * 2, UnitPixel, hAttributes
                 GdipResetWorldTransform hGraphics2
             Else
-                GdipDrawImageRectRectI hGraphics2, hPictureShadow, X - ShadowSize + m_ShadowOffsetX, Y - ShadowSize + m_ShadowOffsetY, ReqWidth + ShadowSize * 2, ReqHeight + ShadowSize * 2, 0, 0, m_PictureRealWidth + ShadowSize * 2, m_PictureRealHeight + ShadowSize * 2, UnitPixel, hAttributes
+                GdipDrawImageRectRectI hGraphics2, hPictureShadow, x - ShadowSize + m_ShadowOffsetX, y - ShadowSize + m_ShadowOffsetY, ReqWidth + ShadowSize * 2, ReqHeight + ShadowSize * 2, 0, 0, m_PictureRealWidth + ShadowSize * 2, m_PictureRealHeight + ShadowSize * 2, UnitPixel, hAttributes
             End If
             GdipDisposeImage hPictureShadow
             
@@ -1384,10 +1415,10 @@ Private Function CreateBrushTexture(hGraphics As Long, hPath As Long, ByVal X As
 
         If m_PictureAngle <> 0 Then
             Call GdipRotateWorldTransform(hGraphics2, m_PictureAngle + 180, 0)
-            Call GdipTranslateWorldTransform(hGraphics2, X + (ReqWidth \ 2), Y + (ReqHeight \ 2), 1)
+            Call GdipTranslateWorldTransform(hGraphics2, x + (ReqWidth \ 2), y + (ReqHeight \ 2), 1)
             GdipDrawImageRectRectI hGraphics2, m_Bitmap, ReqWidth \ 2, ReqHeight \ 2, -ReqWidth, -ReqHeight, 0, 0, m_PictureRealWidth, m_PictureRealHeight, UnitPixel, hAttributes
         Else
-            GdipDrawImageRectRectI hGraphics2, m_Bitmap, X, Y, ReqWidth, ReqHeight, 0, 0, m_PictureRealWidth, m_PictureRealHeight, UnitPixel, hAttributes
+            GdipDrawImageRectRectI hGraphics2, m_Bitmap, x, y, ReqWidth, ReqHeight, 0, 0, m_PictureRealWidth, m_PictureRealHeight, UnitPixel, hAttributes
         End If
                 
         'GdipDisposeImage hImage
@@ -1415,7 +1446,7 @@ Private Sub CreateBuffer() 'Acrylic buffer
     OldhBmp = SelectObject(hDCMemory, hBmp)
 End Sub
 
-Private Sub CreateCaptionShadow(ByVal X As Long, ByVal Y As Long, ByVal lWidth As Long, ByVal lHeight As Long)
+Private Sub CreateCaptionShadow(ByVal x As Long, ByVal y As Long, ByVal lWidth As Long, ByVal lHeight As Long)
     Dim hGraphics As Long
     Dim hPath As Long
     Dim hImage As Long
@@ -1523,7 +1554,7 @@ End Sub
 
 Private Function DrawHotLine(hGraphics As Long, hPath As Long) ', ByVal PosX As Long, ByVal PosY As Long)
     Dim hBrush As Long
-    Dim X As Long, Y As Long
+    Dim x As Long, y As Long
     Dim WW As Long, HH As Long
     Dim BW As Long
     Dim LW As Long
@@ -1538,8 +1569,8 @@ Private Function DrawHotLine(hGraphics As Long, hPath As Long) ', ByVal PosX As 
     
     If m_BorderPosition = bpOutside Then
         If m_HotLinePosition = hlLeft Or m_HotLinePosition = hlTop Then
-            X = BW
-            Y = BW
+            x = BW
+            y = BW
             WW = UserControl.ScaleWidth - BW
             HH = UserControl.ScaleHeight - BW
         Else
@@ -1547,8 +1578,8 @@ Private Function DrawHotLine(hGraphics As Long, hPath As Long) ', ByVal PosX As 
             HH = UserControl.ScaleHeight - BW
         End If
     Else
-        X = BW
-        Y = BW
+        x = BW
+        y = BW
         WW = UserControl.ScaleWidth - BW * 2
         HH = UserControl.ScaleHeight - BW * 2
     End If
@@ -1556,20 +1587,20 @@ Private Function DrawHotLine(hGraphics As Long, hPath As Long) ', ByVal PosX As 
     If m_Shadow Then
         SS = ShadowSize * nScale
         If m_HotLinePosition = hlRight Or m_HotLinePosition = hlBottom Then
-            X = X - SS
-            Y = Y - SS
+            x = x - SS
+            y = y - SS
         Else
-            X = X + SS
-            Y = Y + SS
+            x = x + SS
+            y = y + SS
         End If
-        If ShadowOffsetX < 0 Then X = X + Abs(ShadowOffsetX * nScale)
-        If ShadowOffsetY < 0 Then Y = Y + Abs(ShadowOffsetY * nScale)
+        If ShadowOffsetX < 0 Then x = x + Abs(ShadowOffsetX * nScale)
+        If ShadowOffsetY < 0 Then y = y + Abs(ShadowOffsetY * nScale)
     End If
     
     LW = m_HotLineWidth * nScale
     Select Case m_HotLinePosition
-        Case hlLeft: X = X + LW
-        Case hlTop: Y = Y + LW
+        Case hlLeft: x = x + LW
+        Case hlTop: y = y + LW
         Case hlRight: WW = WW - LW
         Case hlBottom: HH = HH - LW
     End Select
@@ -1577,14 +1608,14 @@ Private Function DrawHotLine(hGraphics As Long, hPath As Long) ', ByVal PosX As 
     If m_CallOut Then
         CL = m_coLen * nScale
         Select Case m_CallOutPosicion
-            Case coLeft: If m_HotLinePosition = hlLeft Then X = X + CL
-            Case coTop: If m_HotLinePosition = hlTop Then Y = Y + CL
+            Case coLeft: If m_HotLinePosition = hlLeft Then x = x + CL
+            Case coTop: If m_HotLinePosition = hlTop Then y = y + CL
             Case coRight: If m_HotLinePosition = hlRight Then WW = WW - CL
             Case coBottom: If m_HotLinePosition = hlBottom Then HH = HH - CL
         End Select
     End If
         
-    GdipSetClipRectI hGraphics, X, Y, WW, HH, CombineModeExclude
+    GdipSetClipRectI hGraphics, x, y, WW, HH, CombineModeExclude
     
     Select Case m_ChangeOnMouseOver
         Case Is = eChangeHotlineColor, eChangeCaptionHotLine
@@ -1603,7 +1634,7 @@ Private Function DrawHotLine(hGraphics As Long, hPath As Long) ', ByVal PosX As 
         
 End Function
 
-Private Sub DrawProgress(hGraphics As Long, ByVal X As Long, ByVal Y As Long, ByVal Width As Long, ByVal Height As Long, ByVal Value As Long, ByVal Max As Long)
+Private Sub DrawProgress(hGraphics As Long, ByVal x As Long, ByVal y As Long, ByVal Width As Long, ByVal Height As Long, ByVal Value As Long, ByVal Max As Long)
     Dim hPen As Long
     Dim ReqWidth As Long, ReqHeight As Long
     Dim HScale As Double, VScale As Double
@@ -1622,29 +1653,29 @@ Private Sub DrawProgress(hGraphics As Long, ByVal X As Long, ByVal Y As Long, By
     ReqHeight = MyScale * nScale
 
         '----------------
-    If m_PictureAlignmentH = pLeft Then X = X + (m_PicturePaddingX * nScale)
-    If m_PictureAlignmentH = pCenter Then X = X + (Width \ 2) - (ReqWidth \ 2) + (m_PicturePaddingX * nScale)
-    If m_PictureAlignmentH = pRight Then X = X + Width - ReqWidth - (m_PicturePaddingX * nScale)
-    If m_PictureAlignmentV = pTop Then Y = Y + (m_PicturePaddingY * nScale)
-    If m_PictureAlignmentV = pMiddle Then Y = Y + (Height \ 2) - (ReqHeight \ 2) + (m_PicturePaddingY * nScale)
-    If m_PictureAlignmentV = pBottom Then Y = Y + Height - ReqHeight - (m_PicturePaddingY * nScale)
+    If m_PictureAlignmentH = pLeft Then x = x + (m_PicturePaddingX * nScale)
+    If m_PictureAlignmentH = pCenter Then x = x + (Width \ 2) - (ReqWidth \ 2) + (m_PicturePaddingX * nScale)
+    If m_PictureAlignmentH = pRight Then x = x + Width - ReqWidth - (m_PicturePaddingX * nScale)
+    If m_PictureAlignmentV = pTop Then y = y + (m_PicturePaddingY * nScale)
+    If m_PictureAlignmentV = pMiddle Then y = y + (Height \ 2) - (ReqHeight \ 2) + (m_PicturePaddingY * nScale)
+    If m_PictureAlignmentV = pBottom Then y = y + Height - ReqHeight - (m_PicturePaddingY * nScale)
     
     GdipCreatePen1 ConvertColor(vbBlack, 50), 3 * nScale, UnitPixel, hPen
-    GdipDrawArc hGraphics, hPen, X, Y, ReqWidth, ReqHeight, 0, 360
+    GdipDrawArc hGraphics, hPen, x, y, ReqWidth, ReqHeight, 0, 360
     GdipDeletePen hPen
     GdipCreatePen1 ConvertColor(&HFFCC00, 50), 3 * nScale, UnitPixel, hPen
     '
     If Max = 0 Then
         Angle = Angle + 36
-        GdipDrawArc hGraphics, hPen, X, Y, ReqWidth, ReqHeight, -90 + Angle, 60
+        GdipDrawArc hGraphics, hPen, x, y, ReqWidth, ReqHeight, -90 + Angle, 60
     Else
-        GdipDrawArc hGraphics, hPen, X, Y, ReqWidth, ReqHeight, -90, 360 * Value / Max
+        GdipDrawArc hGraphics, hPen, x, y, ReqWidth, ReqHeight, -90, 360 * Value / Max
     End If
     GdipDeletePen hPen
 
 End Sub
 
-Private Function GDIP_AddPathString(ByVal hGraphics As Long, X As Long, Y As Long, Width As Long, Height As Long, Optional ForShadow As Boolean, Optional GetMeasureString As Boolean) As Boolean
+Private Function GDIP_AddPathString(ByVal hGraphics As Long, x As Long, y As Long, Width As Long, Height As Long, Optional ForShadow As Boolean, Optional GetMeasureString As Boolean) As Boolean
     Dim hPath As Long
     Dim hPen As Long
     Dim hBrush As Long
@@ -1654,7 +1685,7 @@ Private Function GDIP_AddPathString(ByVal hGraphics As Long, X As Long, Y As Lon
     Dim lFontSize As Long
     Dim lFontStyle As GDIPLUS_FONTSTYLE
     Dim hFont As Long
-    Dim hDC As Long
+    Dim hdc As Long
 
     If GdipCreatePath(&H0, hPath) = 0 Then
     
@@ -1684,7 +1715,7 @@ Private Function GDIP_AddPathString(ByVal hGraphics As Long, X As Long, Y As Lon
             
             'Caption1
             With layoutRect
-                .Left = X: .Top = Y
+                .Left = x: .Top = y
                 .Width = Width: .Height = Height
             End With
                                                 
@@ -1692,16 +1723,16 @@ Private Function GDIP_AddPathString(ByVal hGraphics As Long, X As Long, Y As Lon
             GdipMeasureString hGraphics, StrPtr(m_Caption1), -1, hFont, layoutRect, hFormat, BB, CF, LF
             GdipDeleteFont hFont
                       
-            X = BB.Left
-            Y = BB.Top
+            x = BB.Left
+            y = BB.Top
             Width = BB.Width 'IIf(BB.Width < (UserControl.ScaleWidth - m_Caption1PaddingX), (UserControl.ScaleWidth - m_Caption1PaddingX), BB.Width)
             Height = BB.Height
             GdipDeleteFontFamily hFontFamily
             
         Else
             With layoutRect
-                .Left = IIf(m_eCaptionAlignmentH = cLeft, X + m_Caption1PaddingX * nScale, X - m_Caption1PaddingX * nScale)
-                .Top = IIf(m_eCaptionAlignmentV = cTop, Y + m_Caption1PaddingY * nScale, Y - m_Caption1PaddingY * nScale)
+                .Left = IIf(m_eCaptionAlignmentH = cLeft, x + m_Caption1PaddingX * nScale, x - m_Caption1PaddingX * nScale)
+                .Top = IIf(m_eCaptionAlignmentV = cTop, y + m_Caption1PaddingY * nScale, y - m_Caption1PaddingY * nScale)
                 .Width = Width - (m_Caption1PaddingX * nScale) '* 2
                 .Height = Height - (m_Caption1PaddingY * nScale) * 2
             End With
@@ -1762,8 +1793,8 @@ Private Function GDIP_AddPathString(ByVal hGraphics As Long, X As Long, Y As Lon
                 End If
                 
                 With layoutRect
-                    .Left = X + m_IconPaddingX * nScale: .Width = Width - (m_IconPaddingX * nScale) * 2
-                    .Top = Y + m_IconPaddingY * nScale: .Height = Height - (m_IconPaddingY * nScale) * 2
+                    .Left = x + m_IconPaddingX * nScale: .Width = Width - (m_IconPaddingX * nScale) * 2
+                    .Top = y + m_IconPaddingY * nScale: .Height = Height - (m_IconPaddingY * nScale) * 2
                 End With
                 
                 If m_CaptionAngle <> 0 Then
@@ -1821,7 +1852,7 @@ Private Function GDIP_AddPathString(ByVal hGraphics As Long, X As Long, Y As Lon
 
 End Function
 
-Private Function GDIP_AddPathString2(ByVal hGraphics As Long, X As Long, Y As Long, Width As Long, Height As Long, Optional ForShadow As Boolean, Optional GetMeasureString As Boolean) As Boolean
+Private Function GDIP_AddPathString2(ByVal hGraphics As Long, x As Long, y As Long, Width As Long, Height As Long, Optional ForShadow As Boolean, Optional GetMeasureString As Boolean) As Boolean
     Dim hPath As Long
     Dim hPen As Long
     Dim hBrush As Long
@@ -1831,7 +1862,7 @@ Private Function GDIP_AddPathString2(ByVal hGraphics As Long, X As Long, Y As Lo
     Dim lFontSize As Long
     Dim lFontStyle As GDIPLUS_FONTSTYLE
     Dim hFont As Long
-    Dim hDC As Long
+    Dim hdc As Long
 
     If GdipCreatePath(&H0, hPath) = 0 Then
 
@@ -1860,7 +1891,7 @@ Private Function GDIP_AddPathString2(ByVal hGraphics As Long, X As Long, Y As Lo
             Dim BB As RECTF, CF As Long, LF As Long
 
             With layoutRect
-                .Left = X: .Top = Y
+                .Left = x: .Top = y
                 .Width = Width: .Height = Height
             End With
 
@@ -1869,16 +1900,16 @@ Private Function GDIP_AddPathString2(ByVal hGraphics As Long, X As Long, Y As Lo
             GdipMeasureString hGraphics, StrPtr(m_Caption2), -1, hFont, layoutRect, hFormat, BB, CF, LF
             GdipDeleteFont hFont
 
-            X = BB.Left
-            Y = BB.Top
+            x = BB.Left
+            y = BB.Top
             Width = BB.Width
             Height = BB.Height
             GdipDeleteFontFamily hFontFamily
         Else
             With layoutRect
-                .Left = IIf(m_eCaptionAlignmentH = cLeft, X + m_Caption2PaddingX * nScale, X - m_Caption2PaddingX * nScale)
+                .Left = IIf(m_eCaptionAlignmentH = cLeft, x + m_Caption2PaddingX * nScale, x - m_Caption2PaddingX * nScale)
                 .Width = Width - (m_Caption2PaddingX * nScale) '* 2
-                .Top = IIf(m_eCaptionAlignmentV = cTop, Y + m_Caption2PaddingY * nScale, Y - m_Caption2PaddingY * nScale)
+                .Top = IIf(m_eCaptionAlignmentV = cTop, y + m_Caption2PaddingY * nScale, y - m_Caption2PaddingY * nScale)
                 '.Top = Y + m_Caption2PaddingY * nScale
                 .Height = Height - (m_Caption2PaddingY * nScale) * 2
             End With
@@ -1937,16 +1968,16 @@ Private Function GDIP_AddPathString2(ByVal hGraphics As Long, X As Long, Y As Lo
 End Function
 
 Private Function GetFontStyleAndSize(oFont As StdFont, lFontStyle As Long, lFontSize As Long)
-        Dim hDC As Long
+        Dim hdc As Long
         lFontStyle = 0
         If oFont.Bold Then lFontStyle = lFontStyle Or FontStyleBold
         If oFont.Italic Then lFontStyle = lFontStyle Or FontStyleItalic
         If oFont.Underline Then lFontStyle = lFontStyle Or FontStyleUnderline
         If oFont.Strikethrough Then lFontStyle = lFontStyle Or FontStyleStrikeout
         
-        hDC = GetDC(0&)
-        lFontSize = MulDiv(oFont.Size, GetDeviceCaps(hDC, LOGPIXELSY), 72)
-        ReleaseDC 0&, hDC
+        hdc = GetDC(0&)
+        lFontSize = MulDiv(oFont.Size, GetDeviceCaps(hdc, LOGPIXELSY), 72)
+        ReleaseDC 0&, hdc
 End Function
 
 Private Function GetSafeRound(Angle As Integer, Width As Long, Height As Long) As Integer
@@ -1957,7 +1988,7 @@ Private Function GetSafeRound(Angle As Integer, Width As Long, Height As Long) A
     GetSafeRound = lRet
 End Function
 
-Private Function GlowRectangle(X As Long, Y As Long, Width As Long, Height As Long, Optional Inflate As Boolean, Optional nn As Boolean) As Long
+Private Function GlowRectangle(x As Long, y As Long, Width As Long, Height As Long, Optional Inflate As Boolean, Optional nn As Boolean) As Long
     Dim mPath As Long
     Dim BCLT As Integer
     Dim BCRT As Integer
@@ -1989,20 +2020,20 @@ Private Function GlowRectangle(X As Long, Y As Long, Width As Long, Height As Lo
     
 
     If Inflate Then MidBorder = m_GlowBorder / 2
-    BCLT = GetSafeRound((m_BorderCornerLeftTop + MidBorder) * nScale, Width, Height)
-    BCRT = GetSafeRound((m_BorderCornerRightTop + MidBorder) * nScale, Width, Height)
+    BCLT = GetSafeRound((m_BorderCornerTopLeft + MidBorder) * nScale, Width, Height)
+    BCRT = GetSafeRound((m_BorderCornerTopRight + MidBorder) * nScale, Width, Height)
     BCBR = GetSafeRound((m_BorderCornerBottomRight + MidBorder) * nScale, Width, Height)
     BCBL = GetSafeRound((m_BorderCornerBottomLeft + MidBorder) * nScale, Width, Height)
     
     If m_CallOut Then
         Select Case m_CallOutPosicion
             Case coLeft
-                X = X + coLen
+                x = x + coLen
                 Width = Width - coLen
                 lMax = Height - BCLT - BCBL
                 If coWidth > lMax Then coWidth = lMax
             Case coTop
-                Y = Y + coLen
+                y = y + coLen
                 Height = Height - coLen
                 lMax = Width - BCLT - BCBL
                 If coWidth > lMax Then coWidth = lMax
@@ -2020,96 +2051,96 @@ Private Function GlowRectangle(X As Long, Y As Long, Width As Long, Height As Lo
     Call GdipCreatePath(&H0, mPath)
                     
                     
-    If BCLT Then GdipAddPathArcI mPath, X, Y, BCLT * 2, BCLT * 2, 180, 90
+    If BCLT Then GdipAddPathArcI mPath, x, y, BCLT * 2, BCLT * 2, 180, 90
 
     If m_CallOutPosicion = coTop And m_CallOut Then
         Select Case m_CallOutAlign
-            Case coFirstCorner: Xx = X + BCLT
-            Case coMidle: Xx = X + BCLT + ((Width - BCLT - BCRT) \ 2) - (coWidth \ 2)
-            Case coSecondCorner: Xx = X + Width - coWidth - BCRT
-            Case coCustomPosition: Xx = X + (m_coCustomPos * nScale)
+            Case coFirstCorner: Xx = x + BCLT
+            Case coMidle: Xx = x + BCLT + ((Width - BCLT - BCRT) \ 2) - (coWidth \ 2)
+            Case coSecondCorner: Xx = x + Width - coWidth - BCRT
+            Case coCustomPosition: Xx = x + (m_coCustomPos * nScale)
         End Select
         
         If (Xx > Width / 2) And coAngle = 0 Then
-            GdipAddPathLineI mPath, Xx, Y, Xx + coWidth, Y - coLen
-            GdipAddPathLineI mPath, Xx + coWidth, Y - coLen, Xx + coWidth, Y
+            GdipAddPathLineI mPath, Xx, y, Xx + coWidth, y - coLen
+            GdipAddPathLineI mPath, Xx + coWidth, y - coLen, Xx + coWidth, y
         Else
-            If BCLT = 0 Then GdipAddPathLineI mPath, X, Y, X, Y
-            GdipAddPathLineI mPath, Xx, Y, Xx + coAngle, Y - coLen
-            GdipAddPathLineI mPath, Xx + coAngle, Y - coLen, Xx + coWidth, Y
+            If BCLT = 0 Then GdipAddPathLineI mPath, x, y, x, y
+            GdipAddPathLineI mPath, Xx, y, Xx + coAngle, y - coLen
+            GdipAddPathLineI mPath, Xx + coAngle, y - coLen, Xx + coWidth, y
         End If
     Else
-        If BCLT = 0 Then GdipAddPathLineI mPath, X, Y, X + Width - BCRT, Y
+        If BCLT = 0 Then GdipAddPathLineI mPath, x, y, x + Width - BCRT, y
     End If
 
 
-    If BCRT Then GdipAddPathArcI mPath, X + Width - BCRT * 2, Y, BCRT * 2, BCRT * 2, 270, 90
+    If BCRT Then GdipAddPathArcI mPath, x + Width - BCRT * 2, y, BCRT * 2, BCRT * 2, 270, 90
 
     If m_CallOutPosicion = coRight And m_CallOut Then
         Select Case m_CallOutAlign
-            Case coFirstCorner: Yy = Y + BCRT
-            Case coMidle: Yy = Y + BCRT + ((Height - BCRT - BCBR) \ 2) - (coWidth \ 2)
-            Case coSecondCorner: Yy = Y + Height - coWidth - BCBR
-            Case coCustomPosition: Yy = Y + (m_coCustomPos * nScale)
+            Case coFirstCorner: Yy = y + BCRT
+            Case coMidle: Yy = y + BCRT + ((Height - BCRT - BCBR) \ 2) - (coWidth \ 2)
+            Case coSecondCorner: Yy = y + Height - coWidth - BCBR
+            Case coCustomPosition: Yy = y + (m_coCustomPos * nScale)
         End Select
-        Xx = X + Width
+        Xx = x + Width
         If (Yy > Height / 2) And coAngle = 0 Then
             GdipAddPathLineI mPath, Xx, Yy, Xx + coLen, Yy + coWidth
             GdipAddPathLineI mPath, Xx + coLen, Yy + coWidth, Xx, Yy + coWidth
             
         Else
-            If BCRT = 0 Then GdipAddPathLineI mPath, X + Width, Y, X + Width, Y
+            If BCRT = 0 Then GdipAddPathLineI mPath, x + Width, y, x + Width, y
             GdipAddPathLineI mPath, Xx, Yy, Xx + coLen, Yy + coAngle
             GdipAddPathLineI mPath, Xx + coLen, Yy + coAngle, Xx, Yy + coWidth
         End If
     Else
-        If BCRT = 0 Then GdipAddPathLineI mPath, X + Width, Y, X + Width, Y + Height - BCBR
+        If BCRT = 0 Then GdipAddPathLineI mPath, x + Width, y, x + Width, y + Height - BCBR
     End If
 
-    If BCBR Then GdipAddPathArcI mPath, X + Width - BCBR * 2, Y + Height - BCBR * 2, BCBR * 2, BCBR * 2, 0, 90
+    If BCBR Then GdipAddPathArcI mPath, x + Width - BCBR * 2, y + Height - BCBR * 2, BCBR * 2, BCBR * 2, 0, 90
 
 
     If m_CallOutPosicion = coBottom And m_CallOut Then
         Select Case m_CallOutAlign
-            Case coFirstCorner: Xx = X + BCBL
-            Case coMidle: Xx = X + BCBL + ((Width - BCBR - BCBL) \ 2) - (coWidth \ 2)
-            Case coSecondCorner: Xx = X + Width - coWidth - BCBR
-            Case coCustomPosition: Xx = X + (m_coCustomPos * nScale)
+            Case coFirstCorner: Xx = x + BCBL
+            Case coMidle: Xx = x + BCBL + ((Width - BCBR - BCBL) \ 2) - (coWidth \ 2)
+            Case coSecondCorner: Xx = x + Width - coWidth - BCBR
+            Case coCustomPosition: Xx = x + (m_coCustomPos * nScale)
         End Select
         
-        Yy = Y + Height
+        Yy = y + Height
         If (Xx > Width / 2) And coAngle = 0 Then
             GdipAddPathLineI mPath, Xx + coWidth, Yy, Xx + coWidth, Yy + coLen
             GdipAddPathLineI mPath, Xx + coWidth, Yy + coLen, Xx, Yy
         Else
-            If BCBR = 0 Then GdipAddPathLineI mPath, X + Width, Y + Height, X + Width, Y + Height
+            If BCBR = 0 Then GdipAddPathLineI mPath, x + Width, y + Height, x + Width, y + Height
             GdipAddPathLineI mPath, Xx + coWidth, Yy, Xx + coAngle, Yy + coLen
             GdipAddPathLineI mPath, Xx + coAngle, Yy + coLen, Xx, Yy
         End If
     Else
-        If BCBR = 0 Then GdipAddPathLineI mPath, X + Width, Y + Height, X + BCBL, Y + Height
+        If BCBR = 0 Then GdipAddPathLineI mPath, x + Width, y + Height, x + BCBL, y + Height
     End If
 
-    If BCBL Then GdipAddPathArcI mPath, X, Y + Height - BCBL * 2, BCBL * 2, BCBL * 2, 90, 90
+    If BCBL Then GdipAddPathArcI mPath, x, y + Height - BCBL * 2, BCBL * 2, BCBL * 2, 90, 90
     
     If m_CallOutPosicion = coLeft And m_CallOut Then
         Select Case m_CallOutAlign
-            Case coFirstCorner: Yy = Y + BCLT
-            Case coMidle: Yy = Y + BCLT + ((Height - BCBL - BCLT) \ 2) - (coWidth \ 2)
-            Case coSecondCorner: Yy = Y + Height - coWidth - BCBL
-            Case coCustomPosition: Yy = Y + (m_coCustomPos * nScale)
+            Case coFirstCorner: Yy = y + BCLT
+            Case coMidle: Yy = y + BCLT + ((Height - BCBL - BCLT) \ 2) - (coWidth \ 2)
+            Case coSecondCorner: Yy = y + Height - coWidth - BCBL
+            Case coCustomPosition: Yy = y + (m_coCustomPos * nScale)
         End Select
         
         If (Yy > Height / 2) And coAngle = 0 Then
-            GdipAddPathLineI mPath, X, Yy + coWidth, X - coLen, Yy + coWidth
-            GdipAddPathLineI mPath, X - coLen, Yy + coWidth, X, Yy
+            GdipAddPathLineI mPath, x, Yy + coWidth, x - coLen, Yy + coWidth
+            GdipAddPathLineI mPath, x - coLen, Yy + coWidth, x, Yy
         Else
-            If BCBL = 0 Then GdipAddPathLineI mPath, X, Y + Height, X, Y + Height
-            GdipAddPathLineI mPath, X, Yy + coWidth, X - coLen, Yy + coAngle
-            GdipAddPathLineI mPath, X - coLen, Yy + coAngle, X, Yy
+            If BCBL = 0 Then GdipAddPathLineI mPath, x, y + Height, x, y + Height
+            GdipAddPathLineI mPath, x, Yy + coWidth, x - coLen, Yy + coAngle
+            GdipAddPathLineI mPath, x - coLen, Yy + coAngle, x, Yy
         End If
     Else
-        If BCBL = 0 Then GdipAddPathLineI mPath, X, Y + Height, X, Y + BCLT
+        If BCBL = 0 Then GdipAddPathLineI mPath, x, y + Height, x, y + BCLT
     End If
    
     GdipClosePathFigures mPath
@@ -2304,7 +2335,7 @@ Private Function ReadValue(ByVal lProp As Long, Optional Default As Long) As Lon
     ReadValue = Default
 End Function
 
-Private Function RoundRectangle(X As Long, Y As Long, Width As Long, Height As Long, Optional Inflate As Boolean, Optional nn As Boolean) As Long
+Private Function RoundRectangle(x As Long, y As Long, Width As Long, Height As Long, Optional Inflate As Boolean, Optional nn As Boolean) As Long
     Dim mPath As Long
     Dim BCLT As Integer
     Dim BCRT As Integer
@@ -2336,20 +2367,20 @@ Private Function RoundRectangle(X As Long, Y As Long, Width As Long, Height As L
     
 
     If Inflate Then MidBorder = m_BorderWidth / 2
-    BCLT = GetSafeRound((m_BorderCornerLeftTop + MidBorder) * nScale, Width, Height)
-    BCRT = GetSafeRound((m_BorderCornerRightTop + MidBorder) * nScale, Width, Height)
+    BCLT = GetSafeRound((m_BorderCornerTopLeft + MidBorder) * nScale, Width, Height)
+    BCRT = GetSafeRound((m_BorderCornerTopRight + MidBorder) * nScale, Width, Height)
     BCBR = GetSafeRound((m_BorderCornerBottomRight + MidBorder) * nScale, Width, Height)
     BCBL = GetSafeRound((m_BorderCornerBottomLeft + MidBorder) * nScale, Width, Height)
     
     If m_CallOut Then
         Select Case m_CallOutPosicion
             Case coLeft
-                X = X + coLen
+                x = x + coLen
                 Width = Width - coLen
                 lMax = Height - BCLT - BCBL
                 If coWidth > lMax Then coWidth = lMax
             Case coTop
-                Y = Y + coLen
+                y = y + coLen
                 Height = Height - coLen
                 lMax = Width - BCLT - BCBL
                 If coWidth > lMax Then coWidth = lMax
@@ -2367,96 +2398,96 @@ Private Function RoundRectangle(X As Long, Y As Long, Width As Long, Height As L
     Call GdipCreatePath(&H0, mPath)
                     
                     
-    If BCLT Then GdipAddPathArcI mPath, X, Y, BCLT * 2, BCLT * 2, 180, 90
+    If BCLT Then GdipAddPathArcI mPath, x, y, BCLT * 2, BCLT * 2, 180, 90
 
     If m_CallOutPosicion = coTop And m_CallOut Then
         Select Case m_CallOutAlign
-            Case coFirstCorner: Xx = X + BCLT
-            Case coMidle: Xx = X + BCLT + ((Width - BCLT - BCRT) \ 2) - (coWidth \ 2)
-            Case coSecondCorner: Xx = X + Width - coWidth - BCRT
-            Case coCustomPosition: Xx = X + (m_coCustomPos * nScale)
+            Case coFirstCorner: Xx = x + BCLT
+            Case coMidle: Xx = x + BCLT + ((Width - BCLT - BCRT) \ 2) - (coWidth \ 2)
+            Case coSecondCorner: Xx = x + Width - coWidth - BCRT
+            Case coCustomPosition: Xx = x + (m_coCustomPos * nScale)
         End Select
         
         If (Xx > Width / 2) And coAngle = 0 Then
-            GdipAddPathLineI mPath, Xx, Y, Xx + coWidth, Y - coLen
-            GdipAddPathLineI mPath, Xx + coWidth, Y - coLen, Xx + coWidth, Y
+            GdipAddPathLineI mPath, Xx, y, Xx + coWidth, y - coLen
+            GdipAddPathLineI mPath, Xx + coWidth, y - coLen, Xx + coWidth, y
         Else
-            If BCLT = 0 Then GdipAddPathLineI mPath, X, Y, X, Y
-            GdipAddPathLineI mPath, Xx, Y, Xx + coAngle, Y - coLen
-            GdipAddPathLineI mPath, Xx + coAngle, Y - coLen, Xx + coWidth, Y
+            If BCLT = 0 Then GdipAddPathLineI mPath, x, y, x, y
+            GdipAddPathLineI mPath, Xx, y, Xx + coAngle, y - coLen
+            GdipAddPathLineI mPath, Xx + coAngle, y - coLen, Xx + coWidth, y
         End If
     Else
-        If BCLT = 0 Then GdipAddPathLineI mPath, X, Y, X + Width - BCRT, Y
+        If BCLT = 0 Then GdipAddPathLineI mPath, x, y, x + Width - BCRT, y
     End If
 
 
-    If BCRT Then GdipAddPathArcI mPath, X + Width - BCRT * 2, Y, BCRT * 2, BCRT * 2, 270, 90
+    If BCRT Then GdipAddPathArcI mPath, x + Width - BCRT * 2, y, BCRT * 2, BCRT * 2, 270, 90
 
     If m_CallOutPosicion = coRight And m_CallOut Then
         Select Case m_CallOutAlign
-            Case coFirstCorner: Yy = Y + BCRT
-            Case coMidle: Yy = Y + BCRT + ((Height - BCRT - BCBR) \ 2) - (coWidth \ 2)
-            Case coSecondCorner: Yy = Y + Height - coWidth - BCBR
-            Case coCustomPosition: Yy = Y + (m_coCustomPos * nScale)
+            Case coFirstCorner: Yy = y + BCRT
+            Case coMidle: Yy = y + BCRT + ((Height - BCRT - BCBR) \ 2) - (coWidth \ 2)
+            Case coSecondCorner: Yy = y + Height - coWidth - BCBR
+            Case coCustomPosition: Yy = y + (m_coCustomPos * nScale)
         End Select
-        Xx = X + Width
+        Xx = x + Width
         If (Yy > Height / 2) And coAngle = 0 Then
             GdipAddPathLineI mPath, Xx, Yy, Xx + coLen, Yy + coWidth
             GdipAddPathLineI mPath, Xx + coLen, Yy + coWidth, Xx, Yy + coWidth
             
         Else
-            If BCRT = 0 Then GdipAddPathLineI mPath, X + Width, Y, X + Width, Y
+            If BCRT = 0 Then GdipAddPathLineI mPath, x + Width, y, x + Width, y
             GdipAddPathLineI mPath, Xx, Yy, Xx + coLen, Yy + coAngle
             GdipAddPathLineI mPath, Xx + coLen, Yy + coAngle, Xx, Yy + coWidth
         End If
     Else
-        If BCRT = 0 Then GdipAddPathLineI mPath, X + Width, Y, X + Width, Y + Height - BCBR
+        If BCRT = 0 Then GdipAddPathLineI mPath, x + Width, y, x + Width, y + Height - BCBR
     End If
 
-    If BCBR Then GdipAddPathArcI mPath, X + Width - BCBR * 2, Y + Height - BCBR * 2, BCBR * 2, BCBR * 2, 0, 90
+    If BCBR Then GdipAddPathArcI mPath, x + Width - BCBR * 2, y + Height - BCBR * 2, BCBR * 2, BCBR * 2, 0, 90
 
 
     If m_CallOutPosicion = coBottom And m_CallOut Then
         Select Case m_CallOutAlign
-            Case coFirstCorner: Xx = X + BCBL
-            Case coMidle: Xx = X + BCBL + ((Width - BCBR - BCBL) \ 2) - (coWidth \ 2)
-            Case coSecondCorner: Xx = X + Width - coWidth - BCBR
-            Case coCustomPosition: Xx = X + (m_coCustomPos * nScale)
+            Case coFirstCorner: Xx = x + BCBL
+            Case coMidle: Xx = x + BCBL + ((Width - BCBR - BCBL) \ 2) - (coWidth \ 2)
+            Case coSecondCorner: Xx = x + Width - coWidth - BCBR
+            Case coCustomPosition: Xx = x + (m_coCustomPos * nScale)
         End Select
         
-        Yy = Y + Height
+        Yy = y + Height
         If (Xx > Width / 2) And coAngle = 0 Then
             GdipAddPathLineI mPath, Xx + coWidth, Yy, Xx + coWidth, Yy + coLen
             GdipAddPathLineI mPath, Xx + coWidth, Yy + coLen, Xx, Yy
         Else
-            If BCBR = 0 Then GdipAddPathLineI mPath, X + Width, Y + Height, X + Width, Y + Height
+            If BCBR = 0 Then GdipAddPathLineI mPath, x + Width, y + Height, x + Width, y + Height
             GdipAddPathLineI mPath, Xx + coWidth, Yy, Xx + coAngle, Yy + coLen
             GdipAddPathLineI mPath, Xx + coAngle, Yy + coLen, Xx, Yy
         End If
     Else
-        If BCBR = 0 Then GdipAddPathLineI mPath, X + Width, Y + Height, X + BCBL, Y + Height
+        If BCBR = 0 Then GdipAddPathLineI mPath, x + Width, y + Height, x + BCBL, y + Height
     End If
 
-    If BCBL Then GdipAddPathArcI mPath, X, Y + Height - BCBL * 2, BCBL * 2, BCBL * 2, 90, 90
+    If BCBL Then GdipAddPathArcI mPath, x, y + Height - BCBL * 2, BCBL * 2, BCBL * 2, 90, 90
     
     If m_CallOutPosicion = coLeft And m_CallOut Then
         Select Case m_CallOutAlign
-            Case coFirstCorner: Yy = Y + BCLT
-            Case coMidle: Yy = Y + BCLT + ((Height - BCBL - BCLT) \ 2) - (coWidth \ 2)
-            Case coSecondCorner: Yy = Y + Height - coWidth - BCBL
-            Case coCustomPosition: Yy = Y + (m_coCustomPos * nScale)
+            Case coFirstCorner: Yy = y + BCLT
+            Case coMidle: Yy = y + BCLT + ((Height - BCBL - BCLT) \ 2) - (coWidth \ 2)
+            Case coSecondCorner: Yy = y + Height - coWidth - BCBL
+            Case coCustomPosition: Yy = y + (m_coCustomPos * nScale)
         End Select
         
         If (Yy > Height / 2) And coAngle = 0 Then
-            GdipAddPathLineI mPath, X, Yy + coWidth, X - coLen, Yy + coWidth
-            GdipAddPathLineI mPath, X - coLen, Yy + coWidth, X, Yy
+            GdipAddPathLineI mPath, x, Yy + coWidth, x - coLen, Yy + coWidth
+            GdipAddPathLineI mPath, x - coLen, Yy + coWidth, x, Yy
         Else
-            If BCBL = 0 Then GdipAddPathLineI mPath, X, Y + Height, X, Y + Height
-            GdipAddPathLineI mPath, X, Yy + coWidth, X - coLen, Yy + coAngle
-            GdipAddPathLineI mPath, X - coLen, Yy + coAngle, X, Yy
+            If BCBL = 0 Then GdipAddPathLineI mPath, x, y + Height, x, y + Height
+            GdipAddPathLineI mPath, x, Yy + coWidth, x - coLen, Yy + coAngle
+            GdipAddPathLineI mPath, x - coLen, Yy + coAngle, x, Yy
         End If
     Else
-        If BCBL = 0 Then GdipAddPathLineI mPath, X, Y + Height, X, Y + BCLT
+        If BCBL = 0 Then GdipAddPathLineI mPath, x, y + Height, x, y + BCLT
     End If
    
     GdipClosePathFigures mPath
@@ -2514,14 +2545,14 @@ Public Sub tmrMOUSEOVER_Timer()
     Top = scaleY(Extender.Top, vbContainerSize, UserControl.ScaleMode)
 
     With RECT
-        .Left = m_PT.X - (m_Left - Left)
-        .Top = m_PT.Y - (m_Top - Top)
+        .Left = m_PT.x - (m_Left - Left)
+        .Top = m_PT.y - (m_Top - Top)
         .Right = .Left + UserControl.ScaleWidth
         .Bottom = .Top + UserControl.ScaleHeight
     End With
     
     bIntercept = False
-    SendMessage c_lhWnd, WM_MOUSEMOVE, 0&, ByVal PT.X Or PT.Y * &H10000
+    SendMessage c_lhWnd, WM_MOUSEMOVE, 0&, ByVal PT.x Or PT.y * &H10000
     
     If bIntercept = False Then
         If m_MouseOver = True Then
@@ -2592,7 +2623,7 @@ End If
 
 DoEvents
 Refresh
-Debug.Print "Tiks:" & iT
+'Debug.Print "Tiks:" & iT
 End Sub
 
 Private Sub UserControl_AsyncReadComplete(AsyncProp As AsyncProperty)
@@ -2641,7 +2672,7 @@ End Sub
 
 
 
-Private Sub UserControl_HitTest(X As Single, Y As Single, HitResult As Integer)
+Private Sub UserControl_HitTest(x As Single, y As Single, HitResult As Integer)
     On Error Resume Next
 
     If UserControl.Enabled Then
@@ -2654,13 +2685,13 @@ Private Sub UserControl_HitTest(X As Single, Y As Single, HitResult As Integer)
             Dim PT As POINTAPI
             Dim lHwnd As Long
             GetCursorPos PT
-            lHwnd = WindowFromPoint(PT.X, PT.Y)
+            lHwnd = WindowFromPoint(PT.x, PT.y)
             
             If m_MouseEnter = False Then
 
                 ScreenToClient c_lhWnd, PT
-                m_PT.X = PT.X - X
-                m_PT.Y = PT.Y - Y
+                m_PT.x = PT.x - x
+                m_PT.y = PT.y - y
     
                 m_Left = scaleX(Extender.Left, vbContainerSize, UserControl.ScaleMode)
                 m_Top = scaleY(Extender.Top, vbContainerSize, UserControl.ScaleMode)
@@ -2721,6 +2752,7 @@ Private Sub UserControl_InitProperties()
     m_Border = m_def_Border
     m_BorderColor = m_def_BorderColor
     m_BorderColorOpacity = m_def_BorderColorOpacity
+    m_BorderStyle = m_def_BorderStyle
     m_ColorOnMouseOver = m_def_ColorOnMouseOver
     m_ColorOnMouseOverOpacity = m_def_ColorOnMouseOverOpacity
     m_BorderPosition = m_def_BorderPosition
@@ -2786,43 +2818,43 @@ Private Sub UserControl_KeyUp(KeyCode As Integer, Shift As Integer)
     RaiseEvent KeyUp(KeyCode, Shift)
 End Sub
 
-Private Sub UserControl_MouseDown(Button As Integer, Shift As Integer, X As Single, Y As Single)
+Private Sub UserControl_MouseDown(Button As Integer, Shift As Integer, x As Single, y As Single)
     If hCur Then SetCursor hCur
-    RaiseEvent MouseDown(Button, Shift, X, Y)
+    RaiseEvent MouseDown(Button, Shift, x, y)
     m_Clicked = True
     Refresh
 End Sub
 
-Private Sub UserControl_MouseMove(Button As Integer, Shift As Integer, X As Single, Y As Single)
+Private Sub UserControl_MouseMove(Button As Integer, Shift As Integer, x As Single, y As Single)
     'Debug.Print X, Y
     If hCur Then SetCursor hCur
-    RaiseEvent MouseMove(Button, Shift, X, Y)
+    RaiseEvent MouseMove(Button, Shift, x, y)
 
 End Sub
 
-Private Sub UserControl_MouseUp(Button As Integer, Shift As Integer, X As Single, Y As Single)
-    RaiseEvent MouseUp(Button, Shift, X, Y)
+Private Sub UserControl_MouseUp(Button As Integer, Shift As Integer, x As Single, y As Single)
+    RaiseEvent MouseUp(Button, Shift, x, y)
     m_Clicked = False
     Refresh
     '-------------
 
 End Sub
 
-Private Sub UserControl_OLEDragDrop(Data As DataObject, Effect As Long, Button As Integer, Shift As Integer, X As Single, Y As Single)
-    RaiseEvent OLEDragDrop(Data, Effect, Button, Shift, X, Y)
+Private Sub UserControl_OLEDragDrop(Data As DataObject, Effect As Long, Button As Integer, Shift As Integer, x As Single, y As Single)
+    RaiseEvent OLEDragDrop(Data, Effect, Button, Shift, x, y)
 End Sub
 
-Private Sub UserControl_OLEDragOver(Data As DataObject, Effect As Long, Button As Integer, Shift As Integer, X As Single, Y As Single, State As Integer)
-    RaiseEvent OLEDragOver(Data, Effect, Button, Shift, X, Y, State)
+Private Sub UserControl_OLEDragOver(Data As DataObject, Effect As Long, Button As Integer, Shift As Integer, x As Single, y As Single, State As Integer)
+    RaiseEvent OLEDragOver(Data, Effect, Button, Shift, x, y, State)
 End Sub
 
 Private Sub UserControl_Paint()
     Dim lHdc As Long
-    Dim X As Long, Y As Long
-    lHdc = UserControl.hDC
-    RaiseEvent PrePaint(lHdc, X, Y)
-    Call Draw(lHdc, 0, X, Y)
-    RaiseEvent PostPaint(UserControl.hDC)
+    Dim x As Long, y As Long
+    lHdc = UserControl.hdc
+    RaiseEvent PrePaint(lHdc, x, y)
+    Call Draw(lHdc, 0, x, y)
+    RaiseEvent PostPaint(UserControl.hdc)
 End Sub
 
 Private Sub UserControl_ReadProperties(PropBag As PropertyBag)
@@ -2839,10 +2871,11 @@ Private Sub UserControl_ReadProperties(PropBag As PropertyBag)
         m_Border = .ReadProperty("Border", m_def_Border)
         m_BorderColor = .ReadProperty("BorderColor", m_def_BorderColor)
         m_BorderColorOpacity = .ReadProperty("BorderColorOpacity", m_def_BorderColorOpacity)
+        m_BorderStyle = .ReadProperty("BorderStyle", m_def_BorderStyle)
         m_ColorOnMouseOver = .ReadProperty("ColorOnMouseOver", m_def_ColorOnMouseOver)
         m_ColorOnMouseOverOpacity = .ReadProperty("ColorOpacityOnMouseOver", m_def_ColorOnMouseOverOpacity)
-        m_BorderCornerLeftTop = .ReadProperty("BorderCornerLeftTop", 0)
-        m_BorderCornerRightTop = .ReadProperty("BorderCornerRightTop", 0)
+        m_BorderCornerTopLeft = .ReadProperty("BorderCornerTopLeft", 0)
+        m_BorderCornerTopRight = .ReadProperty("BorderCornerTopRight", 0)
         m_BorderCornerBottomRight = .ReadProperty("BorderCornerBottomRight", 0)
         m_BorderCornerBottomLeft = .ReadProperty("BorderCornerBottomLeft", 0)
         m_BorderPosition = .ReadProperty("BorderPosition", m_def_BorderPosition)
@@ -2992,10 +3025,11 @@ Private Sub UserControl_WriteProperties(PropBag As PropertyBag)
         Call .WriteProperty("Border", m_Border, m_def_Border)
         Call .WriteProperty("BorderColor", m_BorderColor, m_def_BorderColor)
         Call .WriteProperty("BorderColorOpacity", m_BorderColorOpacity, m_def_BorderColorOpacity)
+        Call .WriteProperty("BorderStyle", m_BorderStyle, m_def_BorderStyle)
         Call .WriteProperty("ColorOnMouseOver", m_ColorOnMouseOver, m_def_ColorOnMouseOver)
         Call .WriteProperty("ColorOpacityOnMouseOver", m_ColorOnMouseOverOpacity, m_def_ColorOnMouseOverOpacity)
-        Call .WriteProperty("BorderCornerLeftTop", m_BorderCornerLeftTop, 0)
-        Call .WriteProperty("BorderCornerRightTop", m_BorderCornerRightTop, 0)
+        Call .WriteProperty("BorderCornerTopLeft", m_BorderCornerTopLeft, 0)
+        Call .WriteProperty("BorderCornerTopRight", m_BorderCornerTopRight, 0)
         Call .WriteProperty("BorderCornerBottomRight", m_BorderCornerBottomRight, 0)
         Call .WriteProperty("BorderCornerBottomLeft", m_BorderCornerBottomLeft, 0)
         Call .WriteProperty("BorderPosition", m_BorderPosition, m_def_BorderPosition)
@@ -3106,12 +3140,12 @@ Public Property Get AutoSize() As Boolean
     AutoSize = m_AutoSize
 End Property
 
-Public Property Let AutoSize(ByVal newValue As Boolean)
+Public Property Let AutoSize(ByVal NewValue As Boolean)
     Dim hGraphics As Long, hImage As Long
     Dim lWidth As Long, lHeight As Long
     Dim lDif As Long
     
-    m_AutoSize = newValue
+    m_AutoSize = NewValue
     If m_AutoSize = False Then Exit Property
     
     GdipCreateBitmapFromScan0 UserControl.ScaleWidth, UserControl.ScaleHeight, 0&, PixelFormat32bppPARGB, ByVal 0&, hImage
@@ -3271,25 +3305,25 @@ Public Property Let BorderCornerBottomRight(ByVal New_Value As Integer)
     Refresh
 End Property
 
-Public Property Get BorderCornerLeftTop() As Integer
-    BorderCornerLeftTop = m_BorderCornerLeftTop
+Public Property Get BorderCornerTopLeft() As Integer
+    BorderCornerTopLeft = m_BorderCornerTopLeft
 End Property
 
-Public Property Let BorderCornerLeftTop(ByVal New_Value As Integer)
-    m_BorderCornerLeftTop = New_Value
-    PropertyChanged "BorderCornerLeftTop"
+Public Property Let BorderCornerTopLeft(ByVal New_Value As Integer)
+    m_BorderCornerTopLeft = New_Value
+    PropertyChanged "BorderCornerTopLeft"
     CreateShadow
     If m_PictureBrush <> 0 Then GdipDeleteBrush m_PictureBrush: m_PictureBrush = 0
     Refresh
 End Property
 
-Public Property Get BorderCornerRightTop() As Integer
-    BorderCornerRightTop = m_BorderCornerRightTop
+Public Property Get BorderCornerTopRight() As Integer
+    BorderCornerTopRight = m_BorderCornerTopRight
 End Property
 
-Public Property Let BorderCornerRightTop(ByVal New_Value As Integer)
-    m_BorderCornerRightTop = New_Value
-    PropertyChanged "BorderCornerRightTop"
+Public Property Let BorderCornerTopRight(ByVal New_Value As Integer)
+    m_BorderCornerTopRight = New_Value
+    PropertyChanged "BorderCornerTopRight"
     CreateShadow
     If m_PictureBrush <> 0 Then GdipDeleteBrush m_PictureBrush: m_PictureBrush = 0
     Refresh
@@ -3313,6 +3347,21 @@ End Property
 Public Property Let BorderPosition(ByVal New_BorderPosition As eBorderPosition)
     m_BorderPosition = New_BorderPosition
     PropertyChanged "BorderPosition"
+    If m_PictureBrush <> 0 Then GdipDeleteBrush m_PictureBrush: m_PictureBrush = 0
+    CreateShadow
+    Refresh
+End Property
+
+Public Property Get BorderStyle() As eBorderStyle
+    BorderStyle = m_BorderStyle
+End Property
+
+Public Property Let BorderStyle(ByVal New_BorderStyle As eBorderStyle)
+    m_BorderStyle = New_BorderStyle
+    If m_BorderStyle = bsThin Then
+        Me.BorderWidth = 1
+    End If
+    PropertyChanged "BorderStyle"
     If m_PictureBrush <> 0 Then GdipDeleteBrush m_PictureBrush: m_PictureBrush = 0
     CreateShadow
     Refresh
@@ -3732,8 +3781,8 @@ Public Property Get Enabled() As Boolean
     Enabled = UserControl.Enabled
 End Property
 
-Public Property Let Enabled(ByVal newValue As Boolean)
-    UserControl.Enabled = newValue
+Public Property Let Enabled(ByVal NewValue As Boolean)
+    UserControl.Enabled = NewValue
     PropertyChanged "Enabled"
 End Property
 ''>>----------------------------------------
@@ -3989,6 +4038,8 @@ Public Property Get IconCharCode() As String
 End Property
 
 Public Property Let IconCharCode(ByVal New_IconCharCode As String)
+    'Use "&H0" to specify that no IconCharCode is to be displayed
+    
     New_IconCharCode = UCase(Replace(New_IconCharCode, SPACE(1), vbNullString))
     New_IconCharCode = UCase(Replace(New_IconCharCode, "U+", "&H"))
     If Not Left(New_IconCharCode, 2) = "&H" And Not IsNumeric(New_IconCharCode) Then
@@ -4075,7 +4126,7 @@ Public Property Get Image() As IPicture
     ReleaseDC 0&, DC
     OldhBmp = SelectObject(TempHdc, hBmp)
     
-    BitBlt TempHdc, 0, 0, UserControl.ScaleWidth, UserControl.ScaleHeight, UserControl.hDC, 0, 0, vbSrcCopy
+    BitBlt TempHdc, 0, 0, UserControl.ScaleWidth, UserControl.ScaleHeight, UserControl.hdc, 0, 0, vbSrcCopy
     
     With IID_IDispatch
         .Data1 = &H20400
@@ -4087,7 +4138,7 @@ Public Property Get Image() As IPicture
         .Size = Len(Pic)
         .type = vbPicTypeBitmap
         .hBmp = hBmp
-        .hpal = 0
+        .hPal = 0
     End With
 
     If OldhBmp Then Call SelectObject(hDCMemory, OldhBmp): OldhBmp = 0
@@ -4109,8 +4160,8 @@ Public Property Get MouseIcon() As IPictureDisp
     Set MouseIcon = UserControl.MouseIcon
 End Property
 
-Public Property Set MouseIcon(ByVal newValue As IPictureDisp)
-    UserControl.MouseIcon = newValue
+Public Property Set MouseIcon(ByVal NewValue As IPictureDisp)
+    UserControl.MouseIcon = NewValue
     PropertyChanged "MouseIcon"
 End Property
 
@@ -4122,9 +4173,9 @@ Public Property Get MousePointerHand() As Boolean
     MousePointerHand = m_MousePointerHand
 End Property
 
-Public Property Let MousePointerHand(ByVal newValue As Boolean)
-    m_MousePointerHand = newValue
-    If newValue Then
+Public Property Let MousePointerHand(ByVal NewValue As Boolean)
+    m_MousePointerHand = NewValue
+    If NewValue Then
         If Ambient.UserMode Then
             UserControl.MousePointer = vbCustom
             UserControl.MouseIcon = GetSystemHandCursor
@@ -4137,8 +4188,8 @@ Public Property Let MousePointerHand(ByVal newValue As Boolean)
     PropertyChanged "MousePointerHand"
 End Property
 
-Public Property Let MousePointer(ByVal newValue As MousePointerConstants)
-    UserControl.MousePointer = newValue
+Public Property Let MousePointer(ByVal NewValue As MousePointerConstants)
+    UserControl.MousePointer = NewValue
     PropertyChanged "MousePointer"
 End Property
 
@@ -4429,9 +4480,9 @@ Public Property Get Value() As Boolean
     Value = m_Value
 End Property
 
-Public Property Let Value(ByVal newValue As Boolean)
-  If m_OptionBehavior And newValue Then OptBehavior
-    m_Value = newValue
+Public Property Let Value(ByVal NewValue As Boolean)
+  If m_OptionBehavior And NewValue Then OptBehavior
+    m_Value = NewValue
     PropertyChanged "Value"
     RaiseEvent ChangeValue(m_Value)
 End Property
