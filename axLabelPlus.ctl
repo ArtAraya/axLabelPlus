@@ -56,6 +56,7 @@ Option Explicit
 '- Renamed m_MousePointerHands to singular m_MousePointerHand
 '- Added eBorderStyles enum and related Draw() code
 '- Added eChangeBackColor to eChangeOnMouseOver enum and related code in Draw()
+'- Add PicturePath property to allow user to load a picture from a given path (LoadImage and LoadImageFromPath are available but those names were not intuitive to me.  I wanted a property with "Picture" in it.)
 '-----------------------------------------------
 
 'Moded Name: axLabelPlus
@@ -553,6 +554,7 @@ Dim m_GradientColorP1 As OLE_COLOR
 Dim m_GradientColorP1Opacity As Integer
 Dim m_GradientColorP2 As OLE_COLOR
 Dim m_GradientColorP2Opacity As Integer
+Dim m_PicturePath           As String
 Dim m_PictureAngle As Integer
 Dim m_PictureAlignmentH As PictureAlignmentH
 Dim m_PictureAlignmentV As PictureAlignmentV
@@ -1009,6 +1011,22 @@ Public Function LoadImagefromPath(sFile As String)
 End Function
 
 Public Function LoadImage(SrcImg, Optional ByVal UseCache As Boolean, Optional ByVal DrawProgress As Boolean = True) As Boolean
+
+''    'I tested some different ways to load an image and below are the results
+    
+''    '1. can we load an image from a file on disk? (YES)
+''    Dim strImagePath As String
+''    strImagePath = "C:\Users\Art\Documents\VB6 Projects\FolderMatch Projects\foldermatch.500\Graphics\FM5\Start Page\Tools Images\png\replace@96px.png"
+''    Call axLabelPlus1.LoadImage(strImagePath)
+    
+''    '2. can we load an image from a RES file? (YES but must be PNG format and even then it's not crisp like when loaded from a file on disk)
+''    Dim stdPict As StdPicture
+''    Set stdPict = GetResIcon(EFMImageResIcons.imresTools_Rename_PNG, 60, 0, "")
+''    Call axLabelPlus1.LoadImage(stdPict)
+''    Set stdPict = Nothing
+''
+''    '3. note that loading from a image list control (containing icons) produced the worst results
+    
     If m_PictureBrush Then GdipDeleteBrush m_PictureBrush: m_PictureBrush = 0&
     If m_Bitmap Then GdipDisposeImage m_Bitmap: m_Bitmap = 0&
     m_PictureRealWidth = 0&: m_PictureRealHeight = 0&
@@ -4222,6 +4240,17 @@ End Property
 '-------------------------------------->
 
 '-------------------------------------->
+
+Public Property Let PicturePath(ByVal New_Value As String)
+    m_PicturePath = New_Value
+    PropertyChanged "PicturePath"
+    
+    Call LoadImagefromPath(New_Value)
+End Property
+
+Public Property Get PictureSetFromPath() As String
+    PicturePath = m_PicturePath
+End Property
 
 Public Property Get PictureAlignmentH() As PictureAlignmentH
     PictureAlignmentH = m_PictureAlignmentH
