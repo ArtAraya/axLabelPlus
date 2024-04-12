@@ -108,6 +108,7 @@ Fork of Awesome LabelPlus VB6 UserControl from Leandro Ascierto
 | PictureOpacity                  |  Integer  | *set the opacity of the picture*                             |
 | PicturePaddingX                 |  Integer  | *horizontal scrolling of the picture*                        |
 | PicturePaddingY                 |  Integer  | *vertical scrolling of the picture*                          |
+| :star:PictureSetPath             |  String  | *holds the path on disk to an image and loads the image into the control*|   
 | PictureSetHeight                |   Long    | *set/override the height of the picture*                     |
 | PictureSetWidth                 |   Long    | *set/override the width of the picture*                      |
 | PictureShadow                   |  Boolean  | *enable the picture shadow*                                  |
