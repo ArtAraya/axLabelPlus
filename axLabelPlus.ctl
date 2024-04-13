@@ -42,7 +42,7 @@ Option Explicit
 'LastUpdate: 3/13/2024
 'Version: 1.6.5
 'Based on: FirenzeLabel Project :http://www.vbforums.com/showthread.php?845221-VB6-FIRENZE-LABEL-label-control-with-so-many-functions
-           'Martin Vartiak, powered by Cairo Graphics and vbRichClient-Framework.
+'Martin Vartiak, powered by Cairo Graphics and vbRichClient-Framework.
 'Special thanks to: All members of the VB6 Latin group (www.leandroacierto.com/foro), vbforum.com and activevb.net
 'Moded Name: axLabelPlus
 'Autor:  Art Araya (Saltybrine Software)
@@ -56,7 +56,9 @@ Option Explicit
 '- Renamed m_MousePointerHands to singular m_MousePointerHand
 '- Added eBorderStyles enum and related Draw() code
 '- Added eChangeBackColor to eChangeOnMouseOver enum and related code in Draw()
-'- Add PicturePath property to allow user to load a picture from a given path (LoadImage and LoadImageFromPath are available but those names were not intuitive to me.  I wanted a property with "Picture" in it.)
+'- Added PicturePath property to allow user to load a picture from a given path (LoadImage and LoadImageFromPath are available but those names were not intuitive to me.)
+'- Added Picture property to allow selection of an stdPicture compatible image format (ICO, BMP, JPG, GIF).  Note that image quality is usually better using PicturePath property with a PNG file.
+'- Added saving and loading of Picture to/from user control's PropertyBag
 '-----------------------------------------------
 
 'Moded Name: axLabelPlus
@@ -534,7 +536,6 @@ Dim m_ColorOnMouseOverOpacity As Integer
 Dim m_AutoSize As Boolean
 Dim m_MousePointerHand As Boolean
 Dim m_Font As StdFont
-Attribute m_Font.VB_VarHelpID = -1
 Dim m_Font2 As StdFont
 Dim m_ForeColor1 As OLE_COLOR
 Dim m_ForeColor2 As OLE_COLOR
@@ -554,6 +555,7 @@ Dim m_GradientColorP1 As OLE_COLOR
 Dim m_GradientColorP1Opacity As Integer
 Dim m_GradientColorP2 As OLE_COLOR
 Dim m_GradientColorP2Opacity As Integer
+Dim m_oPicture              As StdPicture
 Dim m_PicturePath           As String
 Dim m_PictureAngle As Integer
 Dim m_PictureAlignmentH As PictureAlignmentH
@@ -648,10 +650,10 @@ Public Property Get Container() As Control
 End Property
 
 Public Function ChrW2(ByVal CharCode As Long) As String
-  Const POW10 As Long = 2 ^ 10
-  If CharCode <= &HFFFF& Then ChrW2 = ChrW$(CharCode) Else _
-                              ChrW2 = ChrW$(&HD800& + (CharCode And &HFFFF&) \ POW10) & _
-                                      ChrW$(&HDC00& + (CharCode And (POW10 - 1)))
+    Const POW10 As Long = 2 ^ 10
+    If CharCode <= &HFFFF& Then ChrW2 = ChrW$(CharCode) Else _
+        ChrW2 = ChrW$(&HD800& + (CharCode And &HFFFF&) \ POW10) & _
+        ChrW$(&HDC00& + (CharCode And (POW10 - 1)))
 End Function
 
 Public Sub Draw(ByVal hdc As Long, ByVal hGraphics As Long, ByVal PosX As Long, PosY As Long)
@@ -732,13 +734,13 @@ Public Sub Draw(ByVal hdc As Long, ByVal hGraphics As Long, ByVal PosX As Long, 
         Dim RectL As RectL
         SetRect RectL, x, y, lWidth, lHeight
         If m_ChangeColorOnClick And m_Clicked Then
-          GdipCreateLineBrushFromRectWithAngleI RectL, ConvertColor(m_GradientColorP1, m_GradientColorP1Opacity), _
-                                                      ConvertColor(m_GradientColorP2, m_GradientColorP2Opacity), _
-                                                      m_GradientAngle + 90, 0, WrapModeTileFlipXY, hBrush
+            GdipCreateLineBrushFromRectWithAngleI RectL, ConvertColor(m_GradientColorP1, m_GradientColorP1Opacity), _
+                ConvertColor(m_GradientColorP2, m_GradientColorP2Opacity), _
+                m_GradientAngle + 90, 0, WrapModeTileFlipXY, hBrush
         Else
-          GdipCreateLineBrushFromRectWithAngleI RectL, ConvertColor(m_GradientColor1, m_GradientColor1Opacity), _
-                                                      ConvertColor(m_GradientColor2, m_GradientColor2Opacity), _
-                                                      m_GradientAngle + 90, 0, WrapModeTileFlipXY, hBrush
+            GdipCreateLineBrushFromRectWithAngleI RectL, ConvertColor(m_GradientColor1, m_GradientColor1Opacity), _
+                ConvertColor(m_GradientColor2, m_GradientColor2Opacity), _
+                m_GradientAngle + 90, 0, WrapModeTileFlipXY, hBrush
         End If
     Else
         '...background is solid color
@@ -795,14 +797,14 @@ Public Sub Draw(ByVal hdc As Long, ByVal hGraphics As Long, ByVal PosX As Long, 
     'Debug.Print "UserControl.ScaleWidth=" & UserControl.ScaleWidth
     If m_Border And BorderWidth > 0 Then
         Select Case m_ChangeOnMouseOver
-          Case Is = eChangeBorderColor, eChangeCaptionBorder, eChangeIconBorder
-              If m_MouseOver Then
-                GdipCreatePen1 ConvertColor(m_ColorOnMouseOver, m_ColorOnMouseOverOpacity), BorderWidth, UnitPixel, hPen
-              Else
+            Case Is = eChangeBorderColor, eChangeCaptionBorder, eChangeIconBorder
+                If m_MouseOver Then
+                    GdipCreatePen1 ConvertColor(m_ColorOnMouseOver, m_ColorOnMouseOverOpacity), BorderWidth, UnitPixel, hPen
+                Else
+                    GdipCreatePen1 ConvertColor(m_BorderColor, m_BorderColorOpacity), BorderWidth, UnitPixel, hPen
+                End If
+            Case Else
                 GdipCreatePen1 ConvertColor(m_BorderColor, m_BorderColorOpacity), BorderWidth, UnitPixel, hPen
-              End If
-          Case Else
-              GdipCreatePen1 ConvertColor(m_BorderColor, m_BorderColorOpacity), BorderWidth, UnitPixel, hPen
         End Select
         
         If m_BorderPosition = bpInside Then
@@ -821,7 +823,7 @@ Public Sub Draw(ByVal hdc As Long, ByVal hGraphics As Long, ByVal PosX As Long, 
         GdipDeletePen hPen
     End If
     
-'--Border-Glowing....
+    '--Border-Glowing....
     If m_Glowing Then
         
         GdipCreatePen1 ConvertColor(m_GlowColor, m_GlowOpacity), m_GlowBorder, UnitPixel, hPen
@@ -841,7 +843,7 @@ Public Sub Draw(ByVal hdc As Long, ByVal hGraphics As Long, ByVal PosX As Long, 
         GdipDrawPath hGraphics, hPen, hPath
         GdipDeletePen hPen
     End If
-'--End-Glowing------------------
+    '--End-Glowing------------------
     
     GdipDeletePath hPath
     If hdc <> 0 Then GdipDeleteGraphics hGraphics
@@ -1007,25 +1009,25 @@ LoadImageFromArray_Error:
 End Function
 
 Public Function LoadImagefromPath(sFile As String)
-  LoadImage ReadFile(sFile)
+    LoadImage ReadFile(sFile)
 End Function
 
 Public Function LoadImage(SrcImg, Optional ByVal UseCache As Boolean, Optional ByVal DrawProgress As Boolean = True) As Boolean
 
-''    'I tested some different ways to load an image and below are the results
+    ''    'I tested some different ways to load an image and below are the results
     
-''    '1. can we load an image from a file on disk? (YES)
-''    Dim strImagePath As String
-''    strImagePath = "C:\Users\Art\Documents\VB6 Projects\FolderMatch Projects\foldermatch.500\Graphics\FM5\Start Page\Tools Images\png\replace@96px.png"
-''    Call axLabelPlus1.LoadImage(strImagePath)
+    ''    '1. can we load an image from a file on disk? (YES)
+    ''    Dim strImagePath As String
+    ''    strImagePath = "C:\Users\Art\Documents\VB6 Projects\FolderMatch Projects\foldermatch.500\Graphics\FM5\Start Page\Tools Images\png\replace@96px.png"
+    ''    Call axLabelPlus1.LoadImage(strImagePath)
     
-''    '2. can we load an image from a RES file? (YES but must be PNG format and even then it's not crisp like when loaded from a file on disk)
-''    Dim stdPict As StdPicture
-''    Set stdPict = GetResIcon(EFMImageResIcons.imresTools_Rename_PNG, 60, 0, "")
-''    Call axLabelPlus1.LoadImage(stdPict)
-''    Set stdPict = Nothing
-''
-''    '3. note that loading from a image list control (containing icons) produced the worst results
+    ''    '2. can we load an image from a RES file? (YES but must be PNG format and even then it's not crisp like when loaded from a file on disk)
+    ''    Dim stdPict As StdPicture
+    ''    Set stdPict = GetResIcon(EFMImageResIcons.imresTools_Rename_PNG, 60, 0, "")
+    ''    Call axLabelPlus1.LoadImage(stdPict)
+    ''    Set stdPict = Nothing
+    ''
+    ''    '3. note that loading from a image list control (containing icons) produced the worst results
     
     If m_PictureBrush Then GdipDeleteBrush m_PictureBrush: m_PictureBrush = 0&
     If m_Bitmap Then GdipDisposeImage m_Bitmap: m_Bitmap = 0&
@@ -1159,14 +1161,14 @@ End Function
 
 Public Sub Refresh()
     'If m_Redraw Then
-        UserControl.Refresh
+    UserControl.Refresh
     'End If
 End Sub
 
 Private Function ConvertColor(ByVal Color As Long, ByVal Opacity As Long) As Long
     Dim BGRA(0 To 3) As Byte
     OleTranslateColor Color, 0, VarPtr(Color)
-  On Error Resume Next
+    On Error Resume Next
     BGRA(3) = CByte((Abs(Opacity) / 100) * 255)
     BGRA(0) = ((Color \ &H10000) And &HFF)
     BGRA(1) = ((Color \ &H100) And &HFF)
@@ -1176,8 +1178,8 @@ End Function
 
 
 Private Function CreateBlurShadowImage(ByVal hImage As Long, ByVal Color As Long, blurDepth As Integer, _
-                                        Optional ByVal Left As Long, Optional ByVal Top As Long, _
-                                        Optional ByVal Width As Long, Optional ByVal Height As Long) As Long
+    Optional ByVal Left As Long, Optional ByVal Top As Long, _
+    Optional ByVal Width As Long, Optional ByVal Height As Long) As Long
                                         
     Dim REC As RectL
     Dim x As Long, y As Long
@@ -1266,15 +1268,15 @@ Private Function CreateBlurShadowImage(ByVal hImage As Long, ByVal Color As Long
             dBytes(x, y) = tAlpha \ tAvg
             ' and set shadow color
             Select Case dBytes(x, y)
-            Case 255
-                dBytes(x - 1, y) = R
-                dBytes(x - 2, y) = G
-                dBytes(x - 3, y) = B
-            Case 0
-            Case Else
-                dBytes(x - 1, y) = R * dBytes(x, y) \ 255
-                dBytes(x - 2, y) = G * dBytes(x, y) \ 255
-                dBytes(x - 3, y) = B * dBytes(x, y) \ 255
+                Case 255
+                    dBytes(x - 1, y) = R
+                    dBytes(x - 2, y) = G
+                    dBytes(x - 3, y) = B
+                Case 0
+                Case Else
+                    dBytes(x - 1, y) = R * dBytes(x, y) \ 255
+                    dBytes(x - 2, y) = G * dBytes(x, y) \ 255
+                    dBytes(x - 3, y) = B * dBytes(x, y) \ 255
             End Select
             ' remove the furthest left column's alpha sum
             tAlpha = tAlpha - vTally(tColumn)
@@ -1293,15 +1295,15 @@ Private Function CreateBlurShadowImage(ByVal hImage As Long, ByVal Color As Long
         For x = x To (Width + t2xBlur - 1) * 4 - 1 Step 4
             dBytes(x, y) = tAlpha \ tAvg
             Select Case dBytes(x, y)
-            Case 255
-                dBytes(x - 1, y) = R
-                dBytes(x - 2, y) = G
-                dBytes(x - 3, y) = B
-            Case 0
-            Case Else
-                dBytes(x - 1, y) = R * dBytes(x, y) \ 255
-                dBytes(x - 2, y) = G * dBytes(x, y) \ 255
-                dBytes(x - 3, y) = B * dBytes(x, y) \ 255
+                Case 255
+                    dBytes(x - 1, y) = R
+                    dBytes(x - 2, y) = G
+                    dBytes(x - 3, y) = B
+                Case 0
+                Case Else
+                    dBytes(x - 1, y) = R * dBytes(x, y) \ 255
+                    dBytes(x - 2, y) = G * dBytes(x, y) \ 255
+                    dBytes(x - 3, y) = B * dBytes(x, y) \ 255
             End Select
             ' remove this column's alpha sum
             tAlpha = tAlpha - vTally(tColumn)
@@ -1638,9 +1640,9 @@ Private Function DrawHotLine(hGraphics As Long, hPath As Long) ', ByVal PosX As 
     Select Case m_ChangeOnMouseOver
         Case Is = eChangeHotlineColor, eChangeCaptionHotLine
             If m_MouseOver Then
-              GdipCreateSolidFill ConvertColor(m_ColorOnMouseOver, m_ColorOnMouseOverOpacity), hBrush
+                GdipCreateSolidFill ConvertColor(m_ColorOnMouseOver, m_ColorOnMouseOverOpacity), hBrush
             Else
-              GdipCreateSolidFill ConvertColor(m_HotLineColor, m_HotLineColorOpacity), hBrush
+                GdipCreateSolidFill ConvertColor(m_HotLineColor, m_HotLineColorOpacity), hBrush
             End If
         Case Else
             GdipCreateSolidFill ConvertColor(m_HotLineColor, m_HotLineColorOpacity), hBrush
@@ -1670,7 +1672,7 @@ Private Sub DrawProgress(hGraphics As Long, ByVal x As Long, ByVal y As Long, By
     ReqWidth = MyScale * nScale
     ReqHeight = MyScale * nScale
 
-        '----------------
+    '----------------
     If m_PictureAlignmentH = pLeft Then x = x + (m_PicturePaddingX * nScale)
     If m_PictureAlignmentH = pCenter Then x = x + (Width \ 2) - (ReqWidth \ 2) + (m_PicturePaddingX * nScale)
     If m_PictureAlignmentH = pRight Then x = x + Width - ReqWidth - (m_PicturePaddingX * nScale)
@@ -1778,23 +1780,23 @@ Private Function GDIP_AddPathString(ByVal hGraphics As Long, x As Long, y As Lon
             End If
             
             Select Case m_ChangeOnMouseOver
-              Case Is = eChangeCaption1, eChangeCaptions, eChangeCaptionBorder, eChangeCaptionHotLine, eChangeCaptionIcon
-                  If m_MouseOver = True Then
-                    GdipCreateSolidFill ConvertColor(m_ColorOnMouseOver, IIf(ForShadow, m_ShadowColorOpacity, m_ForeColorPOpacity)), hBrush
-                  Else
+                Case Is = eChangeCaption1, eChangeCaptions, eChangeCaptionBorder, eChangeCaptionHotLine, eChangeCaptionIcon
+                    If m_MouseOver = True Then
+                        GdipCreateSolidFill ConvertColor(m_ColorOnMouseOver, IIf(ForShadow, m_ShadowColorOpacity, m_ForeColorPOpacity)), hBrush
+                    Else
+                        GdipCreateSolidFill ConvertColor(m_ForeColor1, IIf(ForShadow, m_ShadowColorOpacity, m_ForeColor1Opacity)), hBrush
+                    End If
+                Case Else
                     GdipCreateSolidFill ConvertColor(m_ForeColor1, IIf(ForShadow, m_ShadowColorOpacity, m_ForeColor1Opacity)), hBrush
-                  End If
-              Case Else
-                  GdipCreateSolidFill ConvertColor(m_ForeColor1, IIf(ForShadow, m_ShadowColorOpacity, m_ForeColor1Opacity)), hBrush
             End Select
 
             GdipFillPath hGraphics, hBrush, hPath
             GdipDeleteBrush hBrush
             
             If m_CaptionBorderWidth > 0 Then
-               GdipCreatePen1 ConvertColor(m_CaptionBorderColor, IIf(ForShadow, m_ShadowColorOpacity, 100)), m_CaptionBorderWidth, UnitPixel, hPen
-               GdipDrawPath hGraphics, hPen, hPath
-               GdipDeletePen hPen
+                GdipCreatePen1 ConvertColor(m_CaptionBorderColor, IIf(ForShadow, m_ShadowColorOpacity, 100)), m_CaptionBorderWidth, UnitPixel, hPen
+                GdipDrawPath hGraphics, hPen, hPath
+                GdipDeletePen hPen
             End If
             
             If m_CaptionAngle <> 0 Then GdipResetWorldTransform hGraphics
@@ -1840,23 +1842,23 @@ Private Function GDIP_AddPathString(ByVal hGraphics As Long, x As Long, y As Lon
                 
                 'IconChar
                 Select Case m_ChangeOnMouseOver
-                  Case Is = eChangeCaptionIcon, eChangeIconOnly, eChangeIconBorder
-                      If m_MouseOver = True Then
-                        GdipCreateSolidFill ConvertColor(m_ColorOnMouseOver, IIf(ForShadow, m_ShadowColorOpacity, m_IconOpacity)), hBrush
-                      Else
+                    Case Is = eChangeCaptionIcon, eChangeIconOnly, eChangeIconBorder
+                        If m_MouseOver = True Then
+                            GdipCreateSolidFill ConvertColor(m_ColorOnMouseOver, IIf(ForShadow, m_ShadowColorOpacity, m_IconOpacity)), hBrush
+                        Else
+                            GdipCreateSolidFill ConvertColor(m_IconForeColor, IIf(ForShadow, m_ShadowColorOpacity, m_IconOpacity)), hBrush
+                        End If
+                    Case Else
                         GdipCreateSolidFill ConvertColor(m_IconForeColor, IIf(ForShadow, m_ShadowColorOpacity, m_IconOpacity)), hBrush
-                      End If
-                  Case Else
-                      GdipCreateSolidFill ConvertColor(m_IconForeColor, IIf(ForShadow, m_ShadowColorOpacity, m_IconOpacity)), hBrush
                 End Select
                 
                 GdipFillPath hGraphics, hBrush, hPath
                 GdipDeleteBrush hBrush
                 
                 If m_CaptionBorderWidth > 0 Then
-                   GdipCreatePen1 ConvertColor(m_CaptionBorderColor, IIf(ForShadow, m_ShadowColorOpacity, 100)), m_CaptionBorderWidth, UnitPixel, hPen
-                   GdipDrawPath hGraphics, hPen, hPath
-                   GdipDeletePen hPen
+                    GdipCreatePen1 ConvertColor(m_CaptionBorderColor, IIf(ForShadow, m_ShadowColorOpacity, 100)), m_CaptionBorderWidth, UnitPixel, hPen
+                    GdipDrawPath hGraphics, hPen, hPath
+                    GdipDeletePen hPen
                 End If
                 
                 GdipDeleteFontFamily hFontFamily
@@ -1955,23 +1957,23 @@ Private Function GDIP_AddPathString2(ByVal hGraphics As Long, x As Long, y As Lo
             End If
 
             Select Case m_ChangeOnMouseOver
-              Case Is = eChangeCaption2, eChangeCaptions, eChangeCaptionBorder, eChangeCaptionHotLine, eChangeCaptionIcon
-                  If m_MouseOver = True Then
-                    GdipCreateSolidFill ConvertColor(m_ColorOnMouseOver, IIf(ForShadow, m_ShadowColorOpacity, m_ForeColorPOpacity)), hBrush
-                  Else
+                Case Is = eChangeCaption2, eChangeCaptions, eChangeCaptionBorder, eChangeCaptionHotLine, eChangeCaptionIcon
+                    If m_MouseOver = True Then
+                        GdipCreateSolidFill ConvertColor(m_ColorOnMouseOver, IIf(ForShadow, m_ShadowColorOpacity, m_ForeColorPOpacity)), hBrush
+                    Else
+                        GdipCreateSolidFill ConvertColor(m_ForeColor2, IIf(ForShadow, m_ShadowColorOpacity, m_ForeColor2Opacity)), hBrush
+                    End If
+                Case Else
                     GdipCreateSolidFill ConvertColor(m_ForeColor2, IIf(ForShadow, m_ShadowColorOpacity, m_ForeColor2Opacity)), hBrush
-                  End If
-              Case Else
-                  GdipCreateSolidFill ConvertColor(m_ForeColor2, IIf(ForShadow, m_ShadowColorOpacity, m_ForeColor2Opacity)), hBrush
             End Select
 
             GdipFillPath hGraphics, hBrush, hPath
             GdipDeleteBrush hBrush
 
             If m_CaptionBorderWidth > 0 Then
-               GdipCreatePen1 ConvertColor(m_CaptionBorderColor, IIf(ForShadow, m_ShadowColorOpacity, 100)), m_CaptionBorderWidth, UnitPixel, hPen
-               GdipDrawPath hGraphics, hPen, hPath
-               GdipDeletePen hPen
+                GdipCreatePen1 ConvertColor(m_CaptionBorderColor, IIf(ForShadow, m_ShadowColorOpacity, 100)), m_CaptionBorderWidth, UnitPixel, hPen
+                GdipDrawPath hGraphics, hPen, hPath
+                GdipDeletePen hPen
             End If
 
             If m_CaptionAngle <> 0 Then GdipResetWorldTransform hGraphics
@@ -1986,16 +1988,16 @@ Private Function GDIP_AddPathString2(ByVal hGraphics As Long, x As Long, y As Lo
 End Function
 
 Private Function GetFontStyleAndSize(oFont As StdFont, lFontStyle As Long, lFontSize As Long)
-        Dim hdc As Long
-        lFontStyle = 0
-        If oFont.Bold Then lFontStyle = lFontStyle Or FontStyleBold
-        If oFont.Italic Then lFontStyle = lFontStyle Or FontStyleItalic
-        If oFont.Underline Then lFontStyle = lFontStyle Or FontStyleUnderline
-        If oFont.Strikethrough Then lFontStyle = lFontStyle Or FontStyleStrikeout
+    Dim hdc As Long
+    lFontStyle = 0
+    If oFont.Bold Then lFontStyle = lFontStyle Or FontStyleBold
+    If oFont.Italic Then lFontStyle = lFontStyle Or FontStyleItalic
+    If oFont.Underline Then lFontStyle = lFontStyle Or FontStyleUnderline
+    If oFont.Strikethrough Then lFontStyle = lFontStyle Or FontStyleStrikeout
         
-        hdc = GetDC(0&)
-        lFontSize = MulDiv(oFont.Size, GetDeviceCaps(hdc, LOGPIXELSY), 72)
-        ReleaseDC 0&, hdc
+    hdc = GetDC(0&)
+    lFontSize = MulDiv(oFont.Size, GetDeviceCaps(hdc, LOGPIXELSY), 72)
+    ReleaseDC 0&, hdc
 End Function
 
 Private Function GetSafeRound(Angle As Integer, Width As Long, Height As Long) As Integer
@@ -2310,24 +2312,24 @@ Private Function ObjFromPtr(ByVal pObj As Long) As Object
 End Function
 
 Private Sub OptBehavior()
-Dim frm As Form
+    Dim frm As Form
     Set frm = Extender.Parent
     
-Dim lHwnd As Long
+    Dim lHwnd As Long
     lHwnd = Extender.Container.hwnd
 
 
     Dim Ctrl As Control
     For Each Ctrl In frm.Controls
         With Ctrl
-           If TypeOf Ctrl Is axLabelPlus Then
-              If .OptionBehavior = True Then
-                 'If (.Container.hwnd = lHwnd) And (Ctrl.hwnd <> UserControl.hwnd) Then
-                 If (.Container.hwnd = lHwnd) And ObjPtr(Ctrl) <> ObjPtr(Extender) Then
-                  If .Value Then .Value = False
-                 End If
-              End If
-           End If
+            If TypeOf Ctrl Is axLabelPlus Then
+                If .OptionBehavior = True Then
+                    'If (.Container.hwnd = lHwnd) And (Ctrl.hwnd <> UserControl.hwnd) Then
+                    If (.Container.hwnd = lHwnd) And ObjPtr(Ctrl) <> ObjPtr(Extender) Then
+                        If .Value Then .Value = False
+                    End If
+                End If
+            End If
         End With
     Next
 End Sub
@@ -2336,8 +2338,8 @@ Private Function ReadFile(sFileName As String) As Byte()
     Dim FF As Integer
     FF = FreeFile
     Open sFileName For Binary As #FF
-        ReDim ReadFile(LOF(FF) - 1)
-        Get #FF, , ReadFile
+    ReDim ReadFile(LOF(FF) - 1)
+    Get #FF, , ReadFile
     Close #FF
 End Function
 
@@ -2586,13 +2588,13 @@ Public Sub tmrMOUSEOVER_Timer()
         RaiseEvent MouseLeave
         
         If m_ChangeOnMouseOver = eChangePictureEffects Then
-          Select Case m_PicEffect
-            Case eAlternateGrayColor
-                PictureGrayScale = True   'imagen gris OnMouseOver
-            Case eIncreaseOpacity
-                tmrEffect.Enabled = False
-                PictureOpacity = oldOpacityValue
-          End Select
+            Select Case m_PicEffect
+                Case eAlternateGrayColor
+                    PictureGrayScale = True   'imagen gris OnMouseOver
+                Case eIncreaseOpacity
+                    tmrEffect.Enabled = False
+                    PictureOpacity = oldOpacityValue
+            End Select
         End If
         Refresh
     End If
@@ -2600,48 +2602,48 @@ End Sub
 
 Private Sub tmrEffect_Timer()
     If PictureOpacity >= 100 Then
-      tmrEffect.Enabled = False
+        tmrEffect.Enabled = False
     Else
-      PictureOpacity = PictureOpacity + 5
+        PictureOpacity = PictureOpacity + 5
     End If
 End Sub
 
 Private Sub tmrGlow_Timer()
 
-If m_GlowTiks = 0 Then
-  GoTo Glow
-ElseIf iT >= (m_GlowTiks) Then
-  iT = 0
-  Glowing = False
-  tmrGlow.Enabled = False
-  m_GlowFading = False
-End If
+    If m_GlowTiks = 0 Then
+        GoTo Glow
+    ElseIf iT >= (m_GlowTiks) Then
+        iT = 0
+        Glowing = False
+        tmrGlow.Enabled = False
+        m_GlowFading = False
+    End If
 
 Glow:
-If m_Glowing Then
-  If m_GlowFading Then
-    If m_GlowBorder <= 0 Then m_GlowFading = False
-    m_GlowBorder = m_GlowBorder - 1
-    m_GlowOpacity = m_GlowOpacity + 5
-    m_BorderColorOpacity = m_BorderColorOpacity + 5
-  Else
-    If m_GlowBorder >= m_GlowFixBorder Then
-      m_GlowFading = True
-      iT = iT + 1
+    If m_Glowing Then
+        If m_GlowFading Then
+            If m_GlowBorder <= 0 Then m_GlowFading = False
+            m_GlowBorder = m_GlowBorder - 1
+            m_GlowOpacity = m_GlowOpacity + 5
+            m_BorderColorOpacity = m_BorderColorOpacity + 5
+        Else
+            If m_GlowBorder >= m_GlowFixBorder Then
+                m_GlowFading = True
+                iT = iT + 1
+            End If
+            m_GlowBorder = m_GlowBorder + 1
+            m_GlowOpacity = m_GlowOpacity - 5
+            m_BorderColorOpacity = m_BorderColorOpacity - 5
+        End If
+    Else
+        m_GlowBorder = m_GlowFixBorder
+        m_GlowOpacity = 0
+        m_BorderColorOpacity = 0
     End If
-    m_GlowBorder = m_GlowBorder + 1
-    m_GlowOpacity = m_GlowOpacity - 5
-    m_BorderColorOpacity = m_BorderColorOpacity - 5
-  End If
-Else
-  m_GlowBorder = m_GlowFixBorder
-  m_GlowOpacity = 0
-  m_BorderColorOpacity = 0
-End If
 
-DoEvents
-Refresh
-'Debug.Print "Tiks:" & iT
+    DoEvents
+    Refresh
+    'Debug.Print "Tiks:" & iT
 End Sub
 
 Private Sub UserControl_AsyncReadComplete(AsyncProp As AsyncProperty)
@@ -2673,10 +2675,10 @@ End Sub
 Private Sub UserControl_Click()
     RaiseEvent Click
     If m_OptionBehavior = True Then
-      m_Value = True
-      OptBehavior
+        m_Value = True
+        OptBehavior
     Else
-      m_Value = Not m_Value
+        m_Value = Not m_Value
     End If
     
     PropertyChanged "Value"
@@ -2716,16 +2718,16 @@ Private Sub UserControl_HitTest(x As Single, y As Single, HitResult As Integer)
  
                 m_MouseEnter = True
                 tmrMOUSEOVER.Interval = 1
-                 RaiseEvent MouseEnter
+                RaiseEvent MouseEnter
                 '----------------->
                 oldOpacityValue = PictureOpacity
                 If m_ChangeOnMouseOver = eChangePictureEffects Then
-                  Select Case m_PicEffect
-                    Case eAlternateGrayColor
-                        PictureGrayScale = False  'imagen colorida OnMouseOver
-                    Case eIncreaseOpacity
-                        tmrEffect.Enabled = True
-                  End Select
+                    Select Case m_PicEffect
+                        Case eAlternateGrayColor
+                            PictureGrayScale = False  'imagen colorida OnMouseOver
+                        Case eIncreaseOpacity
+                            tmrEffect.Enabled = True
+                    End Select
                 End If
                 
                 m_MouseOver = True
@@ -2798,6 +2800,7 @@ Private Sub UserControl_InitProperties()
     m_GradientColor1Opacity = m_def_GradientColor1Opacity
     m_GradientColor2 = m_def_GradientColor2
     m_GradientColor2Opacity = m_def_GradientColor2Opacity
+    m_PicturePath = vbNullString
     m_PictureAlignmentH = 0
     m_PictureAlignmentV = 0
     m_PictureOpacity = m_def_PictureOpacity
@@ -2822,6 +2825,7 @@ Private Sub UserControl_InitProperties()
     
     m_Glowing = m_def_Glowing
     
+    Set Me.Picture = Nothing ' Set a default picture 'Set m_oPicture = Nothing ' Set a default picture
 End Sub
 
 Private Sub UserControl_KeyDown(KeyCode As Integer, Shift As Integer)
@@ -2829,7 +2833,7 @@ Private Sub UserControl_KeyDown(KeyCode As Integer, Shift As Integer)
 End Sub
 
 Private Sub UserControl_KeyPress(KeyAscii As Integer)
-     RaiseEvent KeyPress(KeyAscii)
+    RaiseEvent KeyPress(KeyAscii)
 End Sub
 
 Private Sub UserControl_KeyUp(KeyCode As Integer, Shift As Integer)
@@ -2934,6 +2938,7 @@ Private Sub UserControl_ReadProperties(PropBag As PropertyBag)
         m_GradientColorP1Opacity = .ReadProperty("GradientColorP1Opacity", m_def_GradientColorP1Opacity)
         m_GradientColorP2 = .ReadProperty("GradientColorP2", m_def_GradientColorP2)
         m_GradientColorP2Opacity = .ReadProperty("GradientColorP2Opacity", m_def_GradientColorP2Opacity)
+        m_PicturePath = .ReadProperty("PicturePath", vbNullString)
         m_PictureAngle = .ReadProperty("PictureAngle", 0)
         m_PictureAlignmentH = .ReadProperty("PictureAlignmentH", 0)
         m_PictureAlignmentV = .ReadProperty("PictureAlignmentV", 0)
@@ -2991,6 +2996,8 @@ Private Sub UserControl_ReadProperties(PropBag As PropertyBag)
         tmrGlow.Interval = m_GlowSpeed
         tmrGlow.Enabled = m_Glowing
         
+        Set m_oPicture = .ReadProperty("Picture", Nothing)
+        
         m_PicEffect = .ReadProperty("PictureEffectMouseOver", eIncreaseOpacity)
 
         If m_MousePointerHand Then
@@ -3000,10 +3007,23 @@ Private Sub UserControl_ReadProperties(PropBag As PropertyBag)
             End If
         End If
     
+        '//load the picture
+        '// If PicturePresent = True, we have saved picture data
+        '// We need to determine if we've got the data as a stdPicture or as a byte array
+
+        '1. If m_oPicture <> Nothing then, the picture was set using the Picture property and was saved as a stdPicture
+        'OR
+        '2. Else, the picture was set using the PicturePath property or selected at DesignTime via the Custom PropertyPage and was saved as byte array
+            
         If CBool(.ReadProperty("PicturePresent", False)) Then
-            m_PictureArr() = .ReadProperty("PictureArr")
-            Call LoadImage(m_PictureArr)
+            If m_oPicture Is Nothing Then
+                m_PictureArr() = .ReadProperty("PictureArr")
+                Call LoadImage(m_PictureArr)
+            Else
+                Call LoadImage(m_oPicture)
+            End If
         End If
+        
         bRecreateShadowCaption = True
         CreateShadow
         If m_BackAcrylicBlur Then CreateBuffer
@@ -3088,6 +3108,7 @@ Private Sub UserControl_WriteProperties(PropBag As PropertyBag)
         Call .WriteProperty("GradientColorP1Opacity", m_GradientColorP1Opacity, m_def_GradientColorP1Opacity)
         Call .WriteProperty("GradientColorP2", m_GradientColorP2, m_def_GradientColorP2)
         Call .WriteProperty("GradientColorP2Opacity", m_GradientColorP2Opacity, m_def_GradientColorP2Opacity)
+        Call .WriteProperty("PicturePath", m_PicturePath, vbNullString)
         Call .WriteProperty("PictureAngle", m_PictureAngle, 0)
         Call .WriteProperty("PictureAlignmentH", m_PictureAlignmentH, pLeft)
         Call .WriteProperty("PictureAlignmentV", m_PictureAlignmentV, pTop)
@@ -3141,12 +3162,29 @@ Private Sub UserControl_WriteProperties(PropBag As PropertyBag)
         Call .WriteProperty("GlowColor", m_GlowColor, m_def_BorderColor)
         Call .WriteProperty("GlowTiks", m_GlowTiks, 10)
         
+         
         Call .WriteProperty("PictureEffectMouseOver", m_PicEffect, eIncreaseOpacity)
-        
         Call .WriteProperty("PicturePresent", m_PicturePresent, False)
+        
+        '// save the picture data, if we have one
+        '// the control allows pictures to be added a few ways and each results in the picture data being saved in different ways
+        '// 1. Image is loaded via Picture propery of the control. Picture is stored as a stdPicture object
+        '// 2. Image is loaded via PicturePath property or the Custom Property Page.  Picture data is stored as an array
         If m_PicturePresent Then
-            Call .WriteProperty("PictureArr", m_PictureArr, 0)
+            If Not m_oPicture Is Nothing Then
+                'stdPictures are saved like this:
+                Call .WriteProperty("Picture", m_oPicture, Nothing)
+                
+                Call .WriteProperty("PictureArr", 0)    'make sure the picture data array is empty just to make sure we're only storing the data in one way
+            Else
+                'pictures set via the PicturePath property or via the Custom Property Page are saved like this
+                Call .WriteProperty("PictureArr", m_PictureArr, 0)
+                
+                Call .WriteProperty("Picture", Nothing) 'make sure Picture property is nothing just to make sure we're only storing the data in one way
+            End If
         Else
+            'no picture data to save
+            Call .WriteProperty("Picture", Nothing)
             Call .WriteProperty("PictureArr", 0)
         End If
         
@@ -3836,19 +3874,19 @@ Public Property Let GlowColor(ByVal New_GlowColor As OLE_COLOR)
 End Property
 
 Public Property Get Glowing() As Boolean
-  Glowing = m_Glowing
+    Glowing = m_Glowing
 End Property
 
 Public Property Let Glowing(ByVal New_Glowing As Boolean)
-  m_Glowing = New_Glowing
-  m_OldBorderColorOpacity = m_BorderColorOpacity
-  iT = 0
-  tmrGlow.Enabled = m_Glowing
-  PropertyChanged "Glowing"
-  If New_Glowing = False Then
-    BorderColorOpacity = m_OldBorderColorOpacity
-  End If
-  m_GlowFading = New_Glowing
+    m_Glowing = New_Glowing
+    m_OldBorderColorOpacity = m_BorderColorOpacity
+    iT = 0
+    tmrGlow.Enabled = m_Glowing
+    PropertyChanged "Glowing"
+    If New_Glowing = False Then
+        BorderColorOpacity = m_OldBorderColorOpacity
+    End If
+    m_GlowFading = New_Glowing
   
 End Property
 
@@ -3864,12 +3902,12 @@ Public Property Let GlowSpeed(ByVal New_GlowSpeed As Integer)
 End Property
 
 Public Property Get GlowTiks() As Integer
-  GlowTiks = m_GlowTiks
+    GlowTiks = m_GlowTiks
 End Property
 
 Public Property Let GlowTiks(ByVal NewGlowTiks As Integer)
-  m_GlowTiks = NewGlowTiks
-  PropertyChanged "GlowTiks"
+    m_GlowTiks = NewGlowTiks
+    PropertyChanged "GlowTiks"
 End Property
 '--END-GLOWING------
 
@@ -4229,26 +4267,54 @@ Public Property Let OLEDropMode(ByVal New_Value As OLEDropConstants)
 End Property
 '-------------------------------------->
 Public Property Get OptionBehavior() As Boolean
-   OptionBehavior = m_OptionBehavior
+    OptionBehavior = m_OptionBehavior
 End Property
 
 Public Property Let OptionBehavior(ByVal bOptionBehavior As Boolean)
-   m_OptionBehavior = bOptionBehavior
-   PropertyChanged "OptionBehavior"
+    m_OptionBehavior = bOptionBehavior
+    PropertyChanged "OptionBehavior"
 End Property
 
 '-------------------------------------->
 
 '-------------------------------------->
+
+'use Picture property to select image formats compatible with IPictureDisp (ICO, BMP, JPG, GIF)
+'use PicturePath property to select other image formats with better resolution like PNG.
+Public Property Set Picture(ByVal Value As StdPicture)
+    If m_oPicture Is Value Then Exit Property
+    
+    Set m_oPicture = Value
+    m_PicturePath = vbNullString    'we can either set the Picture property or the PictureProperty property, not both
+    PropertyChanged "Picture"
+    
+    If m_oPicture Is Nothing Then
+        Call PictureDelete
+    Else
+        Call LoadImage(m_oPicture)
+    End If
+End Property
+
+Public Property Get Picture() As StdPicture
+    Set Picture = m_oPicture
+End Property
 
 Public Property Let PicturePath(ByVal New_Value As String)
-    m_PicturePath = New_Value
-    PropertyChanged "PicturePath"
+    If m_PicturePath = New_Value Then Exit Property
     
-    Call LoadImagefromPath(New_Value)
+    m_PicturePath = New_Value
+    Set m_oPicture = Nothing    'we can either set the Picture property or the PictureProperty property, not both
+    
+    PropertyChanged "PicturePath"
+
+    If LenB(New_Value) = 0 Then
+        Call PictureDelete
+    Else
+        Call LoadImagefromPath(New_Value)
+    End If
 End Property
 
-Public Property Get PictureSetFromPath() As String
+Public Property Get PicturePath() As String
     PicturePath = m_PicturePath
 End Property
 
@@ -4332,18 +4398,18 @@ Public Property Let PictureContrast(ByVal New_Value As Long)
 End Property
 'Picture Effect-------------------
 Public Property Get PictureEffectMouseOver() As eChangeOpacityEffect
-  PictureEffectMouseOver = m_PicEffect
+    PictureEffectMouseOver = m_PicEffect
 End Property
 
 Public Property Let PictureEffectMouseOver(ByVal NewPictureEffectMouseOver As eChangeOpacityEffect)
-  m_PicEffect = NewPictureEffectMouseOver
-  PropertyChanged "PictureEffectMouseOver"
-  If NewPictureEffectMouseOver = eAlternateGrayColor Then
-    PictureGrayScale = True
-  Else
-    PictureGrayScale = False
-    oldOpacityValue = PictureOpacity
-  End If
+    m_PicEffect = NewPictureEffectMouseOver
+    PropertyChanged "PictureEffectMouseOver"
+    If NewPictureEffectMouseOver = eAlternateGrayColor Then
+        PictureGrayScale = True
+    Else
+        PictureGrayScale = False
+        oldOpacityValue = PictureOpacity
+    End If
   
 End Property
 
@@ -4510,14 +4576,14 @@ Public Property Get Value() As Boolean
 End Property
 
 Public Property Let Value(ByVal NewValue As Boolean)
-  If m_OptionBehavior And NewValue Then OptBehavior
+    If m_OptionBehavior And NewValue Then OptBehavior
     m_Value = NewValue
     PropertyChanged "Value"
     RaiseEvent ChangeValue(m_Value)
 End Property
 
 Public Property Get Version() As String
-Version = App.Major & "." & App.Minor & "." & App.Revision
+    Version = App.Major & "." & App.Minor & "." & App.Revision
 End Property
 
 
