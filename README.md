@@ -93,6 +93,7 @@ Fork of Awesome LabelPlus VB6 UserControl from Leandro Ascierto
 | :star:ItemData |  Variant  | *holds optional additional data*    
 | :star: OptionBehavior       |  Boolean  | *allows the control to function as an OptionButton, returning* TRUE *when clicked and passing the other controls that have OptionBehavior enabled to* FALSE |
 | :star:Parent |  Form  | *reference to Form that the label is placed on*                           |
+| :star:Picture             |  stdPicture  | *loads a stdPicture image into the control. This method supports only BMP, ICO, JPG, GIF*|  
 | PictureAlignmentH               | Constant  | *indicate the horizontal alignment of the picture*           |
 | PictureAlignmentV               | Constant  | *indicate the vertical alignment of the picture*             |
 | PictureAngle                    |  Integer  | *set the inclination angle of the picture*                   |
@@ -108,7 +109,7 @@ Fork of Awesome LabelPlus VB6 UserControl from Leandro Ascierto
 | PictureOpacity                  |  Integer  | *set the opacity of the picture*                             |
 | PicturePaddingX                 |  Integer  | *horizontal scrolling of the picture*                        |
 | PicturePaddingY                 |  Integer  | *vertical scrolling of the picture*                          |
-| :star:PictureSetPath             |  String  | *holds the path on disk to an image and loads the image into the control*|   
+| :star:PicturePath             |  String  | *holds the path on disk to an image and loads the image into the control. This method supports PNG images*|   
 | PictureSetHeight                |   Long    | *set/override the height of the picture*                     |
 | PictureSetWidth                 |   Long    | *set/override the width of the picture*                      |
 | PictureShadow                   |  Boolean  | *enable the picture shadow*                                  |
